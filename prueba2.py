@@ -1,9 +1,3 @@
-import streamlit as st
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn import datasets
-
 # Cargar dataset Iris
 data = datasets.load_iris()
 df = pd.DataFrame(data.data, columns=data.feature_names)
