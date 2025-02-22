@@ -2,5 +2,4 @@ streamlit
 plotly.express 
 pandas 
 seaborn 
-sklearn.ensemble
-sklearn.model_selection 
+sklearn
