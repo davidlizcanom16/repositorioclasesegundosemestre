@@ -1,9 +1,4 @@
-import streamlit as st
-import pandas as pd
-import seaborn as sns
-import plotly.express as px
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+
 
 # Configuración del título
 st.title("🔍 Predicción de Especie - Modelo de Machine Learning")
