@@ -2,25 +2,29 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn import datasets
 
-# Cargar datos de ejemplo (puedes cambiar esto por tu propio dataset)
-df = sns.load_dataset("iris")
+# Cargar dataset Iris
+data = datasets.load_iris()
+df = pd.DataFrame(data.data, columns=data.feature_names)
+df['species'] = data.target
+species_map = {0: 'setosa', 1: 'versicolor', 2: 'virginica'}
+df['species'] = df['species'].map(species_map)
 
-# Título de la aplicación
-st.title("📊 Análisis de Datos con Streamlit")
+# Título de la app
+st.title("🌸 Clasificación de Especies en el Dataset Iris")
 
-# Mostrar la tabla de datos
-st.subheader("📄 Datos")
-st.write(df)
+# Selección de variables para visualizar
+x_var = st.selectbox("Selecciona la variable del eje X", df.columns[:-1])
+y_var = st.selectbox("Selecciona la variable del eje Y", df.columns[:-1])
 
-# Matriz de correlación
-st.subheader("📊 Mapa de Calor de Correlaciones")
-
-# Filtrar solo columnas numéricas
-corr_matrix = df.select_dtypes(include=['number']).corr()
-
-fig, ax = plt.subplots(figsize=(6, 4))
-sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
-
-# Mostrar gráfico en Streamlit
+# Crear gráfico de dispersión
+st.subheader("📊 Gráfico de Dispersión")
+fig, ax = plt.subplots()
+sns.scatterplot(data=df, x=x_var, y=y_var, hue='species', palette='coolwarm', ax=ax)
 st.pyplot(fig)
+
+# Mostrar pairplot completo
+st.subheader("🔍 Pairplot de Todas las Variables")
+pairplot_fig = sns.pairplot(df, hue='species', palette='coolwarm')
+st.pyplot(pairplot_fig)
