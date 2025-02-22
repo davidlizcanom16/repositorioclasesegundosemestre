@@ -1,24 +1,44 @@
-# Cargar dataset Iris
-data = datasets.load_iris()
-df = pd.DataFrame(data.data, columns=data.feature_names)
-df['species'] = data.target
-species_map = {0: 'setosa', 1: 'versicolor', 2: 'virginica'}
-df['species'] = df['species'].map(species_map)
+import streamlit as st
+import pandas as pd
+import plotly.express as px
 
-# Título de la app
-st.title("🌸 Clasificación de Especies en el Dataset Iris")
+# ---------------------- Configuración de la Aplicación ----------------------
+st.set_page_config(page_title="Clasificación de Especies 🌿", layout="wide")
 
-# Selección de variables para visualizar
-x_var = st.selectbox("Selecciona la variable del eje X", df.columns[:-1])
-y_var = st.selectbox("Selecciona la variable del eje Y", df.columns[:-1])
+# ---------------------- Cargar Dataset ----------------------
+@st.cache_data
+def cargar_datos():
+    return px.data.iris()  # Carga el dataset Iris de Plotly
 
-# Crear gráfico de dispersión
-st.subheader("📊 Gráfico de Dispersión")
-fig, ax = plt.subplots()
-sns.scatterplot(data=df, x=x_var, y=y_var, hue='species', palette='coolwarm', ax=ax)
-st.pyplot(fig)
+df = cargar_datos()
 
-# Mostrar pairplot completo
-st.subheader("🔍 Pairplot de Todas las Variables")
-pairplot_fig = sns.pairplot(df, hue='species', palette='coolwarm')
-st.pyplot(pairplot_fig)
+# ---------------------- Función de Clasificación ----------------------
+def clasificar_especie(row):
+    if row["petal_length"] < 2:
+        return "Setosa 🌸"
+    elif row["petal_length"] < 5:
+        return "Versicolor 🌿"
+    else:
+        return "Virginica 🌺"
+
+df["Especie Clasificada"] = df.apply(clasificar_especie, axis=1)
+
+# ---------------------- Sidebar con Filtros ----------------------
+st.sidebar.title("🔍 Filtros")
+eje_x = st.sidebar.selectbox("Selecciona el eje X", df.columns[:4])
+eje_y = st.sidebar.selectbox("Selecciona el eje Y", df.columns[:4])
+color = st.sidebar.selectbox("Color por", ["species", "Especie Clasificada"])
+
+# ---------------------- Gráfico Interactivo ----------------------
+st.title("📊 Clasificación de Especies por Dimensiones")
+st.write("Explora cómo se distribuyen las especies de Iris según las dimensiones de sus pétalos y sépalos.")
+
+fig = px.scatter(df, x=eje_x, y=eje_y, color=color, hover_data=df.columns, 
+                 title="Distribución de Especies", template="plotly_dark", 
+                 color_discrete_map={"Setosa 🌸": "blue", "Versicolor 🌿": "green", "Virginica 🌺": "red"})
+
+st.plotly_chart(fig, use_container_width=True)
+
+# ---------------------- Mostrar Datos ----------------------
+st.subheader("📋 Datos del Dataset")
+st.dataframe(df)
