@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
 import statsmodels.api as sm
-import sweetviz as sv
+import sweetviz
 import glob
 import os
 import ast
