@@ -6,6 +6,7 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import folium
+from streamlit_folium import st_folium
 
 # Título de la aplicación
 st.title("Análisis de Cargas Publicadas")
@@ -110,7 +111,7 @@ fig = px.bar(cargas_por_dia, x='Posted', y='ID',
              color_continuous_scale='Greys')
 st.plotly_chart(fig)
 
-# Mapa con folium
+# Mapa con folium y streamlit_folium
 st.header("Mapa con cargas por camión y por día")
 mapa = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
 
@@ -119,8 +120,10 @@ for _, registro in df.iterrows():
         location=[registro["LatOrigin"], registro["LngOrigin"]],
         color="blue" if registro["RatePerMile"] > 0 else "orange",
         fill=True,
+        radius=5
     ).add_to(mapa)
-st.write(mapa)
+
+st_folium(mapa, width=700, height=500)
 
 # Boxplot de RatePerMile por combinaciones de zonas
 st.header("Boxplot de RatePerMile por combinaciones de zonas")
