@@ -1,13 +1,8 @@
+streamlit
 pandas
-json
 seaborn
-matplotlib.pyplot
-glob
-os
+matplotlib
 numpy
-ipywidgets
-display
-plotly.express
-statsmodels.formula.api
-statsmodels.api
+plotly
+statsmodels
 sweetviz
