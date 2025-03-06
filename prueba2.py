@@ -1,14 +1,88 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import json
 import seaborn as sns
+import matplotlib.pyplot as plt
+import glob
+import os
+import numpy as np
+import ipywidgets as widgets
+from IPython.display import display
 import plotly.express as px
-import statsmodels.api as sm
 import statsmodels.formula.api as smf
+import statsmodels.api as sm
+import sweetviz as sv
 import folium
+import requests
+from shapely.geometry import Point, LineString, Polygon
 
-# Cargar los datos
-df = pd.read_excel("/louisville_traffic.xlsx")
+# Cargas
+df = pd.DataFrame()
+
+folder_base = os.getcwd()
+parquet_files = glob.glob(folder_base+"/*.parquet")
+
+dfs = []
+for file in parquet_files:
+    df = pd.read_parquet(file)
+    dfs.append(df)
+
+df = pd.concat(dfs, ignore_index=True)
+df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
+cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
+ 'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
+ 'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
+df = df[cols]
+df.to_parquet("loads.parquet")
+
+# Eliminación duplicados
+df = df.drop_duplicates('ID',keep='first')
+
+# Manejo de origen y destino por zona
+def get_zone(state_code):
+    zones = {
+        "Z0": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT"},
+        "Z1": {"DE", "NY", "PA"},
+        "Z2": {"MD", "NC", "SC", "VA", "WV"},
+        "Z3": {"AL", "FL", "GA", "MS", "TN"},
+        "Z4": {"IN", "KY", "MI", "OH"},
+        "Z5": {"IA", "MN", "MT", "ND", "SD", "WI"},
+        "Z6": {"IL", "KS", "MO", "NE"},
+        "Z7": {"AR", "LA", "OK", "TX"},
+        "Z8": {"AZ", "CO", "ID", "NV", "NM", "UT", "WY"},
+        "Z9": {"CA", "OR", "WA", "AK"}
+    }
+    for zone, states in zones.items():
+        if state_code in states:
+            return zone
+    return "Unknown"
+
+df['ZoneOrigin'] = df['StateOrigin'].apply(lambda x: get_zone(x))
+df['ZoneDestination'] = df['StateDestination'].apply(lambda x: get_zone(x))
+
+# Manejo de camiones
+import ast
+def filter_and_explode_equip(data):
+    if data.empty:
+        return pd.DataFrame()
+    desired_values = ['Van', 'Reefer', 'Flatbed']
+    column_name = 'Equip'
+    desired_values_set = set(desired_values)
+    data[column_name] = data[column_name].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    data = data[data[column_name].apply(lambda x: isinstance(x, list))]
+    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values_set])
+    data = data[data[column_name].map(len) > 0]
+    data = data.explode(column_name).reset_index(drop=True)
+    return data
+
+df = filter_and_explode_equip(df)
+
+# Extracción día de la semana
+df['Posted'] = pd.to_datetime(df['Posted'])
+df['weekday'] = df['Posted'].dt.weekday
+df['weekday_name'] = df['Posted'].dt.day_name()
+df = df.drop(df.loc[df['weekday_name']=='Sunday'].index)
+
+# Análisis Exploratorio de Datos
 
 ## Análisis de valores nulos
 df.info()
@@ -41,8 +115,8 @@ print(summary)
 
 df.describe()
 
-## Mapa de cargas con y sin tarifa publicada
-state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
+# Mapa Situación Actual
+tate_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
 state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
 state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
 
@@ -51,12 +125,14 @@ summary_df = pd.DataFrame({
     'Envíos con Rate': state_non_null_counts,
     'Total_Envíos': state_total_counts
 })
+
 summary_df = summary_df.fillna(0).astype(int)
 summary_df['% Envíos null'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
 summary_df['% Envíos null'] = summary_df['% Envíos null'].map("{:.2f}%".format)
 summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
 display(summary_df)
 
+# Visualización en mapa
 m = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
 for _, row in df.iterrows():
     folium.CircleMarker(
@@ -64,110 +140,5 @@ for _, row in df.iterrows():
         color="Blue" if row["RatePerMile"] > 0 else "orange",
         fill=True,
     ).add_to(m)
+
 m
-
-## Eliminación de rates NaN
-df = df.loc[df['RatePerMile'] > 0]
-piv = df.pivot_table(index='Equip', values='ID', aggfunc='count')
-display(piv)
-print(piv['ID'].sum())
-
-df = df.drop(df[df['HubOrigin'] == df['HubDestination']].index)
-
-def remove_outliers_iqr(df, col):
-    Q1 = df[col].quantile(0.25)
-    Q3 = df[col].quantile(0.75)
-    IQR = Q3 - Q1
-    mask = ~((df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR)))
-    return df[mask]
-
-df = remove_outliers_iqr(df, 'RatePerMile')
-
-plt.hist(df['RatePerMile'], range=(0, 7), bins=100)
-plt.xlabel('RatePerMile')
-plt.ylabel('Frecuencia')
-plt.title('Histograma de RatePerMile')
-plt.show()
-
-fig = px.box(df, y="RatePerMile")
-fig.show()
-
-fig = px.box(df, x="Equip", y="RatePerMile", color="Equip")
-fig.show()
-
-sns.boxplot(data=df, x='ZoneDestination', y='RatePerMile', hue='Equip')
-
-model = smf.ols('RatePerMile ~ Equip', data=df).fit()
-anova_table = sm.stats.anova_lm(model, typ=2)
-print(anova_table)
-
-cargas_por_dia = df.groupby(df['Posted'].dt.date)['ID'].nunique().reset_index()
-fig = px.bar(cargas_por_dia, x='Posted', y='ID',
-             title='Cantidad de cargas publicadas por día',
-             labels={'Posted': 'Día', 'ID': 'Cantidad de cargas'},
-             color='ID',
-             color_continuous_scale='Greys')
-fig.show()
-
-fig = px.scatter_mapbox(
-    df,
-    lat="LatOrigin",
-    lon="LngOrigin",
-    color="Equip",
-    hover_name="ID",
-    zoom=4,
-    height=600,
-    mapbox_style="open-street-map"
-)
-fig.show()
-
-df_num = df.select_dtypes(include=['number'])
-correlation_matrix = df_num.corr()
-
-plt.figure(figsize=(8, 6))
-sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
-plt.title("Mapa de calor de la Matriz de Correlación")
-plt.show()
-
-df['ZoneCombination'] = df['ZoneOrigin'] + '-' + df['ZoneDestination']
-combination_counts = df['ZoneCombination'].value_counts().reset_index()
-combination_counts.columns = ['ZoneCombination', 'Count']
-
-fig = px.bar(
-    combination_counts.head(10),
-    x='ZoneCombination',
-    y='Count',
-    title='Combinaciones de Zonas Más Frecuentes',
-    color='ZoneCombination',
-    color_discrete_sequence=px.colors.qualitative.Prism
-)
-fig.show()
-
-fig = px.box(
-    df,
-    x="ZoneCombination",
-    y="RatePerMile",
-    category_orders={"ZoneCombination": df.groupby("ZoneCombination")["RatePerMile"].mean().sort_values(ascending=False).index},
-    title='BoxPlot de Tarifa por milla respecto al Trayecto',
-    color='ZoneCombination',
-    color_discrete_sequence=px.colors.qualitative.Prism
-)
-fig.update_xaxes(tickangle=-45)
-fig.show()
-
-df['ZoneCombination'].nunique()
-
-mapa = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
-colores = ["red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "gray", "black", "cyan", "magenta", "lime", "teal", "olive", "navy", "maroon", "aquamarine", "coral", "fuchsia", "silver", "gold", "indigo", "lavender"]
-paleta_colores = {zona: colores[i % len(colores)] for i, zona in enumerate(df["ZoneCombination"].unique())}
-for _, registro in df.iterrows():
-    folium.CircleMarker(
-        location=[registro["LatOrigin"], registro["LngOrigin"]],
-        radius=5,
-        color=paleta_colores.get(registro["ZoneCombination"], "gray"),
-        fill=True,
-        fill_color=paleta_colores.get(registro["ZoneCombination"], "gray"),
-        popup=registro["ZoneCombination"],
-        tooltip=registro["ZoneCombination"]
-    ).add_to(mapa)
-mapa
