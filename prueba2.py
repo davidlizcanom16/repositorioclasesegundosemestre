@@ -12,7 +12,7 @@ import sweetviz as sv
 
 
 """##Contexto de Negocio: Situación problema
-Empresa de bandera Norteamericana dedicada a conectar generadores de carga y transportistas con las necesidades de envío  a través de sus servicios tecnológicos, se encuentra en la búsqueda de predecir cúanto va pagar un determinado cliente por carga transportada, ya que por naturaleza de dinámica de mercado (oferta/demanda), algunos clientes no suelen publicar las tarifas de envío en el portal, generando incertidumbre en las condiciones de negociación con los transportistas.
+### Empresa de bandera Norteamericana dedicada a conectar generadores de carga y transportistas con las necesidades de envío  a través de sus servicios tecnológicos, se encuentra en la búsqueda de predecir cúanto va pagar un determinado cliente por carga transportada, ya que por naturaleza de dinámica de mercado (oferta/demanda), algunos clientes no suelen publicar las tarifas de envío en el portal, generando incertidumbre en las condiciones de negociación con los transportistas.
 
 ### El objetivo es suministrar información oportuna a los transportistas dando la visibilidad de las ofertas de carga dependiendo la zona, día, cliente y estimación de las tarifas. Para ello se entrenará un modelo para encontrar la variable `RatePerMile` que anticipará la tarifa que ofertará un cliente y se comparará con la de mercado
 
@@ -28,8 +28,7 @@ Acciones:
 - Eliminar lanes intrahub
 - Eliminar outliers generales
 
-Output:
-Dataset para realizar el proyecto
+### Output: Dataset para realizar el proyecto
 
 #### Filtro broker
 Para este análisis se analizarán solamente las cargas publicadas por una empresa cuyo nombre reservamos. En el siguiente comando se leen todas las bases de datos correspondientes y se concatenan en un solo archivo que tiene la información de las últimas 3 semanas de cargas publicadas exceptuando sábados y domingos (3-28 de febrero). En total obtenemos 18625 cargas.
