@@ -3,11 +3,11 @@ import plotly.express as px
 import streamlit as st
 import glob
 import os
-import ast
 import seaborn as sns
 import matplotlib.pyplot as plt
-import sweetviz as sv
 import folium
+from ydata_profiling import ProfileReport
+from streamlit_pandas_profiling import st_profile_report
 
 # Título de la aplicación
 st.title("Análisis de Cargas Publicadas")
@@ -112,10 +112,10 @@ fig = px.bar(cargas_por_dia, x='Posted', y='ID',
              color_continuous_scale='Greys')
 st.plotly_chart(fig)
 
-# Análisis con Sweetviz
-st.header("Análisis reporte librería Sweetviz")
-reporte = sv.analyze(df, target_feat='RatePerMile')
-reporte.show_html()
+# Análisis con Pandas Profiling
+st.header("Análisis exploratorio con Pandas Profiling")
+profile = ProfileReport(df, explorative=True)
+st_profile_report(profile)
 
 # Mapa con folium
 st.header("Mapa con cargas por camión y por día")
