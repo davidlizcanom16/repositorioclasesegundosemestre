@@ -130,3 +130,60 @@ st.header("Boxplot de RatePerMile por combinaciones de zonas")
 df['ZoneCombination'] = df['StateOrigin'] + '-' + df['StateDestination']
 fig = px.box(df, x="ZoneCombination", y="RatePerMile", color='ZoneCombination')
 st.plotly_chart(fig)
+
+
+import pandas as pd
+import numpy as np
+import streamlit as st
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+# Título de la sección
+st.header("Análisis de Correlaciones, Colinealidad y Multicolinealidad")
+
+# Cálculo de correlaciones numéricas (Pearson)
+st.subheader("Correlaciones Numéricas (Pearson)")
+numerical_columns = ['Distance', 'LngDestination', 'LngOrigin', 'LatDestination', 'LatOrigin']
+correlations = df[numerical_columns].corr(method='pearson')
+st.write(correlations)
+
+# Heatmap de correlaciones
+st.subheader("Heatmap de Correlaciones Numéricas")
+plt.figure(figsize=(8,6))
+sns.heatmap(correlations, annot=True, cmap='coolwarm', center=0, linewidths=0.5)
+st.pyplot(plt)
+
+# Cálculo de colinealidad con VIF (Multicolinealidad)
+st.subheader("Detección de Multicolinealidad (VIF)")
+X = df[numerical_columns].dropna()
+X['Intercept'] = 1  # Necesario para VIF
+
+vif_data = pd.DataFrame()
+vif_data["Variable"] = X.columns
+vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
+
+# Eliminar la fila de 'Intercept'
+vif_data = vif_data[vif_data["Variable"] != "Intercept"]
+st.write(vif_data)
+
+# Cálculo de correlaciones categóricas (Ratio de Correlación)
+st.subheader("Correlaciones Categóricas (Correlation Ratio)")
+
+def correlation_ratio(categories, values):
+    """ Calcula el ratio de correlación entre una variable categórica y una numérica """
+    category_groups = [values[categories == cat] for cat in np.unique(categories)]
+    category_means = [np.mean(group) for group in category_groups]
+    global_mean = np.mean(values)
+    
+    ss_between = np.sum([len(group) * (mean - global_mean) ** 2 for group, mean in zip(category_groups, category_means)])
+    ss_total = np.sum((values - global_mean) ** 2)
+    
+    return np.sqrt(ss_between / ss_total) if ss_total > 0 else 0
+
+categorical_columns = ['HubDestination', 'HubOrigin', 'ZoneCombination', 'StateDestination', 'StateOrigin', 'ZoneDestination', 'ZoneOrigin', 'Equip']
+correlation_ratios = {col: correlation_ratio(df[col], df['RatePerMile']) for col in categorical_columns}
+
+correlation_ratios_df = pd.DataFrame(list(correlation_ratios.items()), columns=['Categorical Variable', 'Correlation Ratio'])
+st.write(correlation_ratios_df)
