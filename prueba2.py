@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import glob
 import os
 import numpy as np
-import ipywidgets as widgets
 import plotly.express as px
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
