@@ -10,7 +10,7 @@ import statsmodels.formula.api as smf
 import statsmodels.api as sm
 import folium
 import requests
-from shapely.geometry import Point, LineString, Polygon
+
 
 # Cargas
 df = pd.DataFrame()
