@@ -80,9 +80,6 @@ df['StateOrigin'].nunique() + df['StateDestination'].nunique()
 
 df['CityOrigin'].nunique() + df['CityDestination'].nunique()
 
-"""#### Zonas USA Source: DAT
-![image.png](attachment:e801cfe7-7894-4574-8a45-53f4946e1f35.png)
-"""
 
 def get_zone(state_code):
     zones = {
