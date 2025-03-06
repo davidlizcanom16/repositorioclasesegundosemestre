@@ -1,9 +1,5 @@
 #**Proyecto Final Modelos Analíticos - Maestría Analítica Datos**
 ### **Miembros del Equipo:**
-*  Karen Gomez
-*  David Lizcano
-*  Jason Barrios
-*  Camilo Barriosnuevo
 """
 
 import pandas as pd
