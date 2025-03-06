@@ -5,12 +5,13 @@ import matplotlib.pyplot as plt
 import glob
 import os
 import numpy as np
+import ipywidgets as widgets
 import plotly.express as px
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
 import folium
 import requests
-
+from shapely.geometry import Point, LineString, Polygon
 
 # Cargas
 df = pd.DataFrame()
@@ -113,13 +114,13 @@ print(summary)
 df.describe()
 
 # Mapa Situación Actual
-tate_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
+state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
 state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
 state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
 
 summary_df = pd.DataFrame({
-    'Envíos sin Rate': state_null_counts,
-    'Envíos con Rate': state_non_null_counts,
+    'Envíos sin Rate': state_null_counts.reindex(state_total_counts.index, fill_value=0),
+    'Envíos con Rate': state_non_null_counts.reindex(state_total_counts.index, fill_value=0),
     'Total_Envíos': state_total_counts
 })
 
