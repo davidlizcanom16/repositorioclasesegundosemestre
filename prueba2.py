@@ -8,16 +8,6 @@ import matplotlib.pyplot as plt
 import folium
 from streamlit_folium import st_folium
 import numpy as np
-from scipy.stats import pearsonr
-
-# Función para calcular el correlation ratio (correlación entre variable categórica y numérica)
-def correlation_ratio(categories, values):
-    categories = categories.astype(str)
-    category_means = values.groupby(categories).mean()
-    overall_mean = values.mean()
-    numerator = ((category_means - overall_mean) ** 2 * values.groupby(categories).count()).sum()
-    denominator = ((values - overall_mean) ** 2).sum()
-    return np.sqrt(numerator / denominator) if denominator != 0 else 0
 
 # Título de la aplicación
 st.title("Análisis de Cargas Publicadas")
@@ -90,31 +80,19 @@ plt.figure(figsize=(10, 6))
 sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f')
 st.pyplot(plt)
 
-# Correlaciones categóricas
-categorical_columns = ['HubDestination', 'HubOrigin', 'StateDestination', 'StateOrigin', 'Equip', 'weekday_name']
-categorical_columns = [col for col in categorical_columns if col in df.columns]
-
-correlation_ratios = {col: correlation_ratio(df[col], df['RatePerMile']) for col in categorical_columns}
-correlation_ratios_df = pd.DataFrame(list(correlation_ratios.items()), columns=['Categorical Variable', 'Correlation Ratio'])
-st.write("Correlaciones Categóricas (Correlation Ratio):")
-st.write(correlation_ratios_df)
-
-# Multicolinealidad - VIF (Variance Inflation Factor)
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-def calculate_vif(df, features):
-    X = df[features].dropna()
-    vif_data = pd.DataFrame()
-    vif_data["Feature"] = features
-    vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(len(features))]
-    return vif_data
-
-if len(numeric_columns) > 1:
-    vif_df = calculate_vif(df, numeric_columns)
-    st.write("Factor de Inflación de Varianza (VIF) para detectar multicolinealidad:")
-    st.write(vif_df)
-else:
-    st.write("No hay suficientes variables numéricas para calcular el VIF.")
+# Mapa con cargas por camión y por día
+st.header("Mapa de Cargas Publicadas")
+if 'LatOrigin' in df.columns and 'LngOrigin' in df.columns:
+    m = folium.Map(location=[df['LatOrigin'].mean(), df['LngOrigin'].mean()], zoom_start=6)
+    for _, row in df.iterrows():
+        folium.CircleMarker(
+            location=[row['LatOrigin'], row['LngOrigin']],
+            radius=3,
+            color='blue',
+            fill=True,
+            fill_color='blue'
+        ).add_to(m)
+    st_folium(m, width=700, height=500)
 
 # Visualización de correlaciones con gráficos interactivos
 fig = px.scatter_matrix(df, dimensions=numeric_columns, title="Matriz de Dispersión de Variables Numéricas")
