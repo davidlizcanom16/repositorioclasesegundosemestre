@@ -1,72 +1,102 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
-import seaborn as sns
-import matplotlib.pyplot as plt
-import os
+import streamlit as st
 import glob
+import os
+import ast
 
-# Cargar archivos Parquet y consolidar datos
-def load_data():
-    folder_base = os.getcwd()
-    parquet_files = glob.glob(folder_base + "/*.parquet")
-    dfs = [pd.read_parquet(file) for file in parquet_files]
-    df = pd.concat(dfs, ignore_index=True)
-    df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
-    return df
+# Título de la aplicación
+st.title("Análisis de Cargas Publicadas")
 
-df = load_data()
+# Cargar los datos
+st.header("Cargando datos")
+folder_base = os.getcwd()
+parquet_files = glob.glob(folder_base + "/*.parquet")
 
-# Selección de columnas clave
-cols = ['ID', 'Posted', 'CityOrigin', 'StateOrigin', 'CityDestination', 'StateDestination', 'Distance', 'RatePerMile', 'Equip']
+dfs = []
+for file in parquet_files:
+    df = pd.read_parquet(file)
+    dfs.append(df)
+
+df = pd.concat(dfs, ignore_index=True)
+
+# Convertir RatePerMile a numérico
+df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
+
+# Selección de columnas importantes
+cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
+        'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
+        'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
 df = df[cols]
 
-# Eliminar duplicados
+# Eliminar duplicados por ID
 df = df.drop_duplicates('ID', keep='first')
 
-# Convertir fechas y extraer día de la semana
-df['Posted'] = pd.to_datetime(df['Posted'])
-df['weekday'] = df['Posted'].dt.weekday
-df = df[df['weekday'] != 6]  # Eliminar domingos
-
-# Función para asignar zonas a los estados
+# Función para asignar zonas a estados
 def get_zone(state_code):
     zones = {
-        "Noreste": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT", "DE", "NY", "PA"},
-        "Sureste": {"MD", "NC", "SC", "VA", "WV", "AL", "FL", "GA", "MS", "TN"},
-        "Centro": {"IN", "KY", "MI", "OH", "IA", "MN", "MT", "ND", "SD", "WI", "IL", "KS", "MO", "NE"},
-        "Sur": {"AR", "LA", "OK", "TX"},
-        "Oeste": {"AZ", "CO", "ID", "NV", "NM", "UT", "WY", "CA", "OR", "WA", "AK"}
+        "Z0": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT"},
+        "Z1": {"DE", "NY", "PA"},
+        "Z2": {"MD", "NC", "SC", "VA", "WV"},
+        "Z3": {"AL", "FL", "GA", "MS", "TN"},
+        "Z4": {"IN", "KY", "MI", "OH"},
+        "Z5": {"IA", "MN", "MT", "ND", "SD", "WI"},
+        "Z6": {"IL", "KS", "MO", "NE"},
+        "Z7": {"AR", "LA", "OK", "TX"},
+        "Z8": {"AZ", "CO", "ID", "NV", "NM", "UT", "WY"},
+        "Z9": {"CA", "OR", "WA", "AK"}
     }
     for zone, states in zones.items():
         if state_code in states:
             return zone
-    return "Desconocido"
+    return "Unknown"
 
 df['ZoneOrigin'] = df['StateOrigin'].apply(get_zone)
 df['ZoneDestination'] = df['StateDestination'].apply(get_zone)
 
-# Filtrar por tipo de camión
-df = df[df['Equip'].isin(['Van', 'Reefer', 'Flatbed'])]
+# Filtrar solo camiones permitidos
+def filter_and_explode_equip(data):
+    desired_values = ['Van', 'Reefer', 'Flatbed']
+    column_name = 'Equip'
+    desired_values_set = set(desired_values)
+    data[column_name] = data[column_name].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    data = data[data[column_name].apply(lambda x: isinstance(x, list))]
+    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values_set])
+    data = data[data[column_name].map(len) > 0]
+    return data.explode(column_name).reset_index(drop=True)
 
-# Visualización: Distribución de tarifas
-st.subheader("Distribución de tarifas por milla")
-fig = px.histogram(df, x='RatePerMile', nbins=50, title='Distribución de tarifas por milla')
-st.plotly_chart(fig)
+df = filter_and_explode_equip(df)
 
-# Visualización: Mapa de cargas
-st.subheader("Mapa de cargas publicadas")
-fig = px.scatter_geo(df, lat='LatOrigin', lon='LngOrigin',
-                     hover_name='CityOrigin',
-                     title="Ubicación de cargas publicadas",
-                     projection="natural earth")
-st.plotly_chart(fig)
+# Convertir la fecha a formato datetime
+df['Posted'] = pd.to_datetime(df['Posted'])
+df['weekday'] = df['Posted'].dt.weekday
+df['weekday_name'] = df['Posted'].dt.day_name()
 
-# Visualización: Tarifas por zona
-st.subheader("Tarifas promedio por zona")
-avg_rates = df.groupby('ZoneOrigin')['RatePerMile'].mean().reset_index()
-fig = px.bar(avg_rates, x='ZoneOrigin', y='RatePerMile', title="Tarifas promedio por zona")
-st.plotly_chart(fig)
+# Eliminar registros del domingo
+df = df[df['weekday_name'] != 'Sunday']
 
-st.write("Datos procesados y visualizaciones generadas correctamente.")
+# Visualización: Mapa de cargas publicadas
+st.header("Mapa de cargas publicadas")
+if 'LatOrigin' in df.columns and 'LngOrigin' in df.columns:
+    df_geo = df.dropna(subset=['LatOrigin', 'LngOrigin'])
+    if not df_geo.empty:
+        fig = px.scatter_geo(df_geo, lat='LatOrigin', lon='LngOrigin',
+                             title="Mapa de cargas publicadas",
+                             opacity=0.6)
+        st.plotly_chart(fig)
+    else:
+        st.warning("No hay datos válidos para mostrar en el mapa.")
+else:
+    st.error("Las columnas LatOrigin y LngOrigin no existen en el DataFrame.")
+
+# Visualización: Distribución de tarifas por milla
+st.header("Distribución de tarifas por milla")
+if 'RatePerMile' in df.columns:
+    df = df.dropna(subset=['RatePerMile'])
+    if not df.empty:
+        fig = px.histogram(df, x="RatePerMile", nbins=50, title="Distribución de tarifas por milla")
+        st.plotly_chart(fig)
+    else:
+        st.warning("No hay datos válidos para mostrar en la distribución de tarifas.")
+else:
+    st.error("La columna RatePerMile no existe en el DataFrame.")
