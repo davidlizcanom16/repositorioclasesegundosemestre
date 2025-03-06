@@ -1,9 +1,7 @@
-streamlit
 pandas
 seaborn
 matplotlib
 numpy
-plotly
+plotly==5.15.0
 statsmodels
-sweetviz
-
+ydata-profiling
