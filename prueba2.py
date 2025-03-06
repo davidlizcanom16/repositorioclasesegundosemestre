@@ -8,7 +8,6 @@ import numpy as np
 import plotly.express as px
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
-import sweetviz as sv
 import folium
 import requests
 from shapely.geometry import Point, LineString, Polygon
