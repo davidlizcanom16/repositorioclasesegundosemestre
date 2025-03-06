@@ -7,20 +7,13 @@
 """
 
 import pandas as pd
-import json
 import seaborn as sns
-import matplotlib.pyplot as plt
-import glob
-import os
+import matplotlib.pyplot as plt  # Úsalo si realmente lo necesitas
 import numpy as np
-import ipywidgets as widgets
-from IPython.display import display
-!pip install plotly==5.15.0
 import plotly.express as px
-import statsmodels.formula.api as smf
 import statsmodels.api as sm
-!pip install sweetviz
 import sweetviz as sv
+
 
 """##Contexto de Negocio: Situación problema
 Empresa de bandera Norteamericana dedicada a conectar generadores de carga y transportistas con las necesidades de envío  a través de sus servicios tecnológicos, se encuentra en la búsqueda de predecir cúanto va pagar un determinado cliente por carga transportada, ya que por naturaleza de dinámica de mercado (oferta/demanda), algunos clientes no suelen publicar las tarifas de envío en el portal, generando incertidumbre en las condiciones de negociación con los transportistas.
