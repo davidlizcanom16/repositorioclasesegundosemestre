@@ -5,8 +5,7 @@ import glob
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from ydata_profiling import ProfileReport
-from streamlit_pandas_profiling import st_profile_report
+import folium
 
 # Título de la aplicación
 st.title("Análisis de Cargas Publicadas")
@@ -110,11 +109,6 @@ fig = px.bar(cargas_por_dia, x='Posted', y='ID',
              color='ID',
              color_continuous_scale='Greys')
 st.plotly_chart(fig)
-
-# Análisis con Pandas Profiling
-st.header("Análisis exploratorio con Pandas Profiling")
-profile = ProfileReport(df, explorative=True)
-st_profile_report(profile)
 
 # Mapa con folium
 st.header("Mapa con cargas por camión y por día")
