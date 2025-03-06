@@ -1,4 +1,13 @@
-streamlit
 pandas
-plotly.express 
-
+json
+seaborn
+matplotlib.pyplot
+glob
+os
+numpy
+ipywidgets
+display
+plotly.express
+statsmodels.formula.api
+statsmodels.api
+sweetviz
