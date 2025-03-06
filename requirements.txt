@@ -6,3 +6,4 @@ numpy
 plotly
 statsmodels
 sweetviz
+
