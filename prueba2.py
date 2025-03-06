@@ -7,6 +7,17 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import folium
 from streamlit_folium import st_folium
+import numpy as np
+from scipy.stats import pearsonr
+
+# Función para calcular el correlation ratio (correlación entre variable categórica y numérica)
+def correlation_ratio(categories, values):
+    categories = categories.astype(str)
+    category_means = values.groupby(categories).mean()
+    overall_mean = values.mean()
+    numerator = ((category_means - overall_mean) ** 2 * values.groupby(categories).count()).sum()
+    denominator = ((values - overall_mean) ** 2).sum()
+    return np.sqrt(numerator / denominator) if denominator != 0 else 0
 
 # Título de la aplicación
 st.title("Análisis de Cargas Publicadas")
@@ -30,7 +41,7 @@ df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
 cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
         'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
         'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
-df = df[cols]
+df = df[[col for col in cols if col in df.columns]]
 
 # Eliminar duplicados por ID
 df = df.drop_duplicates('ID', keep='first')
@@ -52,29 +63,6 @@ plt.figure(figsize=(8, 6))
 sns.heatmap(df.isnull(), cbar=False, cmap='inferno')
 st.pyplot(plt)
 
-# Resumen de valores nulos por tipo de camión
-summary = df.groupby('Equip')['RatePerMile'].agg(
-    total='size',
-    nulos=lambda x: x.isnull().sum(),
-    no_nulos='count'
-)
-summary['% nulos por Equip'] = (summary['nulos'] / summary['total']) * 100
-st.write(summary)
-
-# Visualización: Mapa de cargas publicadas
-st.header("Mapa de cargas publicadas")
-if 'LatOrigin' in df.columns and 'LngOrigin' in df.columns:
-    df_geo = df.dropna(subset=['LatOrigin', 'LngOrigin'])
-    if not df_geo.empty:
-        fig = px.scatter_geo(df_geo, lat='LatOrigin', lon='LngOrigin',
-                             title="Mapa de cargas publicadas",
-                             opacity=0.6)
-        st.plotly_chart(fig)
-    else:
-        st.warning("No hay datos válidos para mostrar en el mapa.")
-else:
-    st.error("Las columnas LatOrigin y LngOrigin no existen en el DataFrame.")
-
 # Eliminación de valores nulos en RatePerMile
 df = df.dropna(subset=['RatePerMile'])
 
@@ -88,102 +76,46 @@ def remove_outliers_iqr(df, col):
 
 df = remove_outliers_iqr(df, 'RatePerMile')
 
-# Visualización: Distribución de tarifas por milla
-st.header("Distribución de tarifas por milla")
-if not df.empty:
-    fig = px.histogram(df, x="RatePerMile", nbins=50, title="Distribución de tarifas por milla")
-    st.plotly_chart(fig)
-else:
-    st.warning("No hay datos válidos para mostrar en la distribución de tarifas.")
+# Análisis de correlaciones
+st.header("Análisis de correlaciones")
 
-# Visualización: Boxplot de tarifas por tipo de camión
-st.header("Análisis general boxplot de RatePerMile por tipo de camión")
-fig = px.box(df, x="Equip", y="RatePerMile", color="Equip")
-st.plotly_chart(fig)
+# Correlaciones numéricas
+numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+correlation_matrix = df[numeric_columns].corr()
+st.write("Matriz de correlaciones:")
+st.write(correlation_matrix)
 
-# Visualización: Cantidad de cargas publicadas por día
-st.header("Cantidad de cargas publicadas por día")
-cargas_por_dia = df.groupby(df['Posted'].dt.date)['ID'].nunique().reset_index()
-fig = px.bar(cargas_por_dia, x='Posted', y='ID',
-             title='Cantidad de cargas publicadas por día',
-             labels={'Posted': 'Día', 'ID': 'Cantidad de cargas'},
-             color='ID',
-             color_continuous_scale='Greys')
-st.plotly_chart(fig)
-
-# Mapa con folium y streamlit_folium
-st.header("Mapa con cargas por camión y por día")
-mapa = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
-
-for _, registro in df.iterrows():
-    folium.CircleMarker(
-        location=[registro["LatOrigin"], registro["LngOrigin"]],
-        color="blue" if registro["RatePerMile"] > 0 else "orange",
-        fill=True,
-        radius=5
-    ).add_to(mapa)
-
-st_folium(mapa, width=700, height=500)
-
-# Boxplot de RatePerMile por combinaciones de zonas
-st.header("Boxplot de RatePerMile por combinaciones de zonas")
-df['ZoneCombination'] = df['StateOrigin'] + '-' + df['StateDestination']
-fig = px.box(df, x="ZoneCombination", y="RatePerMile", color='ZoneCombination')
-st.plotly_chart(fig)
-
-
-import pandas as pd
-import numpy as np
-import streamlit as st
-import seaborn as sns
-import matplotlib.pyplot as plt
-from scipy.stats import pearsonr
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-
-# Título de la sección
-st.header("Análisis de Correlaciones, Colinealidad y Multicolinealidad")
-
-# Cálculo de correlaciones numéricas (Pearson)
-st.subheader("Correlaciones Numéricas (Pearson)")
-numerical_columns = ['Distance', 'LngDestination', 'LngOrigin', 'LatDestination', 'LatOrigin']
-correlations = df[numerical_columns].corr(method='pearson')
-st.write(correlations)
-
-# Heatmap de correlaciones
-st.subheader("Heatmap de Correlaciones Numéricas")
-plt.figure(figsize=(8,6))
-sns.heatmap(correlations, annot=True, cmap='coolwarm', center=0, linewidths=0.5)
+# Gráfico de correlaciones
+plt.figure(figsize=(10, 6))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f')
 st.pyplot(plt)
 
-# Cálculo de colinealidad con VIF (Multicolinealidad)
-st.subheader("Detección de Multicolinealidad (VIF)")
-X = df[numerical_columns].dropna()
-X['Intercept'] = 1  # Necesario para VIF
+# Correlaciones categóricas
+categorical_columns = ['HubDestination', 'HubOrigin', 'StateDestination', 'StateOrigin', 'Equip', 'weekday_name']
+categorical_columns = [col for col in categorical_columns if col in df.columns]
 
-vif_data = pd.DataFrame()
-vif_data["Variable"] = X.columns
-vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
-
-# Eliminar la fila de 'Intercept'
-vif_data = vif_data[vif_data["Variable"] != "Intercept"]
-st.write(vif_data)
-
-# Cálculo de correlaciones categóricas (Ratio de Correlación)
-st.subheader("Correlaciones Categóricas (Correlation Ratio)")
-
-def correlation_ratio(categories, values):
-    """ Calcula el ratio de correlación entre una variable categórica y una numérica """
-    category_groups = [values[categories == cat] for cat in np.unique(categories)]
-    category_means = [np.mean(group) for group in category_groups]
-    global_mean = np.mean(values)
-    
-    ss_between = np.sum([len(group) * (mean - global_mean) ** 2 for group, mean in zip(category_groups, category_means)])
-    ss_total = np.sum((values - global_mean) ** 2)
-    
-    return np.sqrt(ss_between / ss_total) if ss_total > 0 else 0
-
-categorical_columns = ['HubDestination', 'HubOrigin', 'ZoneCombination', 'StateDestination', 'StateOrigin', 'ZoneDestination', 'ZoneOrigin', 'Equip']
 correlation_ratios = {col: correlation_ratio(df[col], df['RatePerMile']) for col in categorical_columns}
-
 correlation_ratios_df = pd.DataFrame(list(correlation_ratios.items()), columns=['Categorical Variable', 'Correlation Ratio'])
+st.write("Correlaciones Categóricas (Correlation Ratio):")
 st.write(correlation_ratios_df)
+
+# Multicolinealidad - VIF (Variance Inflation Factor)
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+def calculate_vif(df, features):
+    X = df[features].dropna()
+    vif_data = pd.DataFrame()
+    vif_data["Feature"] = features
+    vif_data["VIF"] = [variance_inflation_factor(X.values, i) for i in range(len(features))]
+    return vif_data
+
+if len(numeric_columns) > 1:
+    vif_df = calculate_vif(df, numeric_columns)
+    st.write("Factor de Inflación de Varianza (VIF) para detectar multicolinealidad:")
+    st.write(vif_df)
+else:
+    st.write("No hay suficientes variables numéricas para calcular el VIF.")
+
+# Visualización de correlaciones con gráficos interactivos
+fig = px.scatter_matrix(df, dimensions=numeric_columns, title="Matriz de Dispersión de Variables Numéricas")
+st.plotly_chart(fig)
