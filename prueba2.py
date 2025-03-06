@@ -1,44 +1,155 @@
-import streamlit as st
+#**Proyecto Final Modelos Analíticos - Maestría Analítica Datos**
+### **Miembros del Equipo:**
+*  Karen Gomez
+*  David Lizcano
+*  Jason Barrios
+*  Camilo Barriosnuevo
+"""
+
 import pandas as pd
+import json
+import seaborn as sns
+import matplotlib.pyplot as plt
+import glob
+import os
+import numpy as np
+import ipywidgets as widgets
+from IPython.display import display
+!pip install plotly==5.15.0
 import plotly.express as px
+import statsmodels.formula.api as smf
+import statsmodels.api as sm
+!pip install sweetviz
+import sweetviz as sv
 
-# ---------------------- Configuración de la Aplicación ----------------------
-st.set_page_config(page_title="Clasificación de Especies 🌿", layout="wide")
+"""##Contexto de Negocio: Situación problema
+Empresa de bandera Norteamericana dedicada a conectar generadores de carga y transportistas con las necesidades de envío  a través de sus servicios tecnológicos, se encuentra en la búsqueda de predecir cúanto va pagar un determinado cliente por carga transportada, ya que por naturaleza de dinámica de mercado (oferta/demanda), algunos clientes no suelen publicar las tarifas de envío en el portal, generando incertidumbre en las condiciones de negociación con los transportistas.
 
-# ---------------------- Cargar Dataset ----------------------
-@st.cache_data
-def cargar_datos():
-    return px.data.iris()  # Carga el dataset Iris de Plotly
+El objetivo es suministrar información oportuna a los transportistas dando la visibilidad de las ofertas de carga dependiendo la zona, día, cliente y estimación de las tarifas. Para ello se entrenará un modelo para encontrar la variable `RatePerMile` que anticipará la tarifa que ofertará un cliente y se comparará con la de mercado
 
-df = cargar_datos()
+## 1. Limpieza de información
 
-# ---------------------- Función de Clasificación ----------------------
-def clasificar_especie(row):
-    if row["petal_length"] < 2:
-        return "Setosa 🌸"
-    elif row["petal_length"] < 5:
-        return "Versicolor 🌿"
-    else:
-        return "Virginica 🌺"
+### 1.1 Cargas Broker
+Acciones:
+- Filtrar broker
+- Duplicados por ID
+- Seleccionar sólo camiones [Vans]
+- Filtrar por [RatePerMile] (por naturaleza de mercado muchas observaciones que publican sin tarifa)
+- Cambio de Estados de Origen y destino por zonas (reducción)
+- Eliminar lanes intrahub
+- Eliminar outliers generales
 
-df["Especie Clasificada"] = df.apply(clasificar_especie, axis=1)
+Output:
+Dataset para realizar el proyecto
 
-# ---------------------- Sidebar con Filtros ----------------------
-st.sidebar.title("🔍 Filtros")
-eje_x = st.sidebar.selectbox("Selecciona el eje X", df.columns[:4])
-eje_y = st.sidebar.selectbox("Selecciona el eje Y", df.columns[:4])
-color = st.sidebar.selectbox("Color por", ["species", "Especie Clasificada"])
+#### Filtro broker
+Para este análisis se analizarán solamente las cargas publicadas por una empresa cuyo nombre reservamos. En el siguiente comando se leen todas las bases de datos correspondientes y se concatenan en un solo archivo que tiene la información de las últimas 3 semanas de cargas publicadas exceptuando sábados y domingos (3-28 de febrero). En total obtenemos 18625 cargas.
+"""
 
-# ---------------------- Gráfico Interactivo ----------------------
-st.title("📊 Clasificación de Especies por Dimensiones")
-st.write("Explora cómo se distribuyen las especies de Iris según las dimensiones de sus pétalos y sépalos.")
+#Cargas
 
-fig = px.scatter(df, x=eje_x, y=eje_y, color=color, hover_data=df.columns, 
-                 title="Distribución de Especies", template="plotly_dark", 
-                 color_discrete_map={"Setosa 🌸": "blue", "Versicolor 🌿": "green", "Virginica 🌺": "red"})
+df = pd.DataFrame()
 
-st.plotly_chart(fig, use_container_width=True)
+folder_base = os.getcwd()
+parquet_files = glob.glob(folder_base+"/*.parquet")
 
-# ---------------------- Mostrar Datos ----------------------
-st.subheader("📋 Datos del Dataset")
-st.dataframe(df)
+dfs = []
+for file in parquet_files:
+    df = pd.read_parquet(file)
+    dfs.append(df)
+
+df = pd.concat(dfs, ignore_index=True)
+df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
+cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
+ 'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
+ 'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
+df = df[cols]
+df.to_parquet("loads.parquet")
+
+df.shape
+
+"""#### Eliminación duplicados
+Es necesario borrar duplicados por ID dado que es posible que una carga haya permanecido varios días publicada antes de que algún conductor la haya reservado. Solo existen 53 registros duplicados, los eliminaremos de la base de datos.
+"""
+
+18625 - df['ID'].nunique()
+
+df = df.drop_duplicates('ID',keep='first')
+df.shape
+
+"""#### Manejo de origen y destino por zona
+En este punto nuestro origen destino depende de la ciudad y estado de la carga, sin embargo, dada la cantidad de ciudades distintas y dado que al final un comportamiento similar de cargas sucede a nivel de estado, manejaremos el análisis a nivel de estado.
+
+Además dado que la cantidad de estados igual es alta sobre 45 posibles opciones de origen, destino y la combinación entre estos. Podemos hacer un segundo análisis por Zonas de Estados Unidos, las cuales son 10. Eventualmente podremos concluir a partir de esto si disminuir la variabilidad del origen destino de la carga reduce el error de la predicción.
+"""
+
+df['StateOrigin'].nunique() + df['StateDestination'].nunique()
+
+df['CityOrigin'].nunique() + df['CityDestination'].nunique()
+
+"""#### Zonas USA Source: DAT
+![image.png](attachment:e801cfe7-7894-4574-8a45-53f4946e1f35.png)
+"""
+
+def get_zone(state_code):
+    zones = {
+        "Z0": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT"},
+        "Z1": {"DE", "NY", "PA"},
+        "Z2": {"MD", "NC", "SC", "VA", "WV"},
+        "Z3": {"AL", "FL", "GA", "MS", "TN"},
+        "Z4": {"IN", "KY", "MI", "OH"},
+        "Z5": {"IA", "MN", "MT", "ND", "SD", "WI"},
+        "Z6": {"IL", "KS", "MO", "NE"},
+        "Z7": {"AR", "LA", "OK", "TX"},
+        "Z8": {"AZ", "CO", "ID", "NV", "NM", "UT", "WY"},
+        "Z9": {"CA", "OR", "WA", "AK"}
+    }
+
+    for zone, states in zones.items():
+        if state_code in states:
+            return zone
+    return "Unknown"
+
+df['ZoneOrigin'] = df['StateOrigin'].apply(lambda x: get_zone(x))
+df['ZoneDestination'] = df['StateDestination'].apply(lambda x: get_zone(x))
+df['ZoneOrigin'].unique()
+
+"""#### Manejo de camiones
+El siguiente paso es limitar el tipo de camión de este análisis.
+"""
+
+df['Equip'].unique()
+
+import ast
+def filter_and_explode_equip(data):
+    if data.empty:
+        return pd.DataFrame()
+    desired_values = ['Van', 'Reefer', 'Flatbed']
+    column_name = 'Equip'
+    desired_values_set = set(desired_values)
+
+    data[column_name] = data[column_name].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    data = data[data[column_name].apply(lambda x: isinstance(x, list))]
+    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values_set])
+
+    data = data[data[column_name].map(len) > 0]
+    data = data.explode(column_name).reset_index(drop=True)
+
+    return data
+
+df = filter_and_explode_equip(df)
+print(df.shape)
+df['Equip'].unique()
+
+"""#### Extracción día de la semana"""
+
+df['Posted'] = pd.to_datetime(df['Posted'])
+df['weekday'] = df['Posted'].dt.weekday
+df['weekday_name'] = df['Posted'].dt.day_name()
+
+df.pivot_table(index='weekday_name',values='ID',aggfunc='count')
+
+"""Dado que el día "Domingo" no es incluído en los días de la base de datos, parece ser un día atípico e imputado incorrectamente, por este motivo lo borraremos de la base de datos."""
+
+df = df.drop(df.loc[df['weekday_name']=='Sunday'].index)
+df.shape
