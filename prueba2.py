@@ -5,7 +5,6 @@ import glob
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-import folium
 from ydata_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
 
