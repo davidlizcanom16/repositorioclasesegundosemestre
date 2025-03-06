@@ -19,7 +19,7 @@ import sweetviz as sv
 ## 1. Limpieza de información
 
 ### 1.1 Cargas Broker
-Acciones:
+###Acciones:
 - Filtrar broker
 - Duplicados por ID
 - Seleccionar sólo camiones [Vans]
