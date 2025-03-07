@@ -107,3 +107,94 @@ if 'Sunday' in df['weekday_name'].unique():
     st.write("Dimensiones después de eliminar domingos:", df.shape)
 
 st.success("Proceso de carga y limpieza completado.")
+
+import io
+import matplotlib.pyplot as plt
+import seaborn as sns
+import folium
+import streamlit.components.v1 as components
+
+st.header("2. Análisis Exploratorio de Datos 1")
+
+# Dataframe inicial: Información general y primeras filas
+st.subheader("Información general del DataFrame")
+buffer = io.StringIO()
+df.info(buf=buffer)
+info_str = buffer.getvalue()
+st.text(info_str)
+
+st.subheader("Primeras 3 filas")
+st.write(df.head(3))
+
+# Análisis de valores nulos
+st.markdown("### Análisis de Valores Nulos")
+null_counts = df.isnull().sum()
+st.write("Cantidad de valores nulos por columna:")
+st.write(null_counts)
+
+st.markdown("**Heatmap de Valores Nulos**")
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.heatmap(df.isnull(), cbar=False, cmap='inferno', ax=ax)
+ax.set_title('Heatmap de Valores Nulos')
+ax.set_xlabel('Columnas')
+ax.set_ylabel('Filas')
+st.pyplot(fig)
+
+st.markdown("**Histograma de valores nulos de RatePerMile por Equip**")
+filtered_df = df[df['RatePerMile'].isnull()]
+fig2, ax2 = plt.subplots(figsize=(8, 6))
+sns.histplot(data=filtered_df, x='Equip', hue='Equip', ax=ax2)
+ax2.set_title('Histograma de valores nulos de RatePerMile por Equip')
+ax2.set_xlabel('Equip')
+ax2.set_ylabel('Cantidad de valores nulos')
+st.pyplot(fig2)
+
+# Agrupar por 'Equip' y calcular estadísticas de nulos
+st.markdown("**Resumen de nulos por tipo de camión (Equip)**")
+summary = df.groupby('Equip')['RatePerMile'].agg(
+    total='size',
+    nulos=lambda x: x.isnull().sum(),
+    no_nulos='count'
+)
+summary['% nulos por Equip'] = (summary['nulos'] / summary['total']) * 100
+summary['% nulos por Equip'] = summary['% nulos por Equip'].map("{:.2f}%".format)
+st.write(summary)
+
+st.markdown("**Descripción estadística del DataFrame**")
+st.write(df.describe())
+
+# Mapa: Cargas con y sin tarifa publicada por Estado
+st.header("Mapa Situación Actual: Cargas con y sin tarifa publicada por Estado")
+
+# Agrupación por estado: cálculo de envíos totales y nulos
+state_total_counts    = df.groupby('StateOrigin')['RatePerMile'].size()
+state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
+state_null_counts     = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
+
+summary_df = pd.DataFrame({
+    'Envíos sin Rate': state_null_counts,
+    'Envíos con Rate': state_non_null_counts,
+    'Total_Envíos': state_total_counts
+})
+summary_df = summary_df.fillna(0).astype(int)
+summary_df['% Envíos null'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
+summary_df['% Envíos null'] = summary_df['% Envíos null'].map("{:.2f}%".format)
+summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
+st.write(summary_df)
+
+st.markdown("**Mapa interactivo de cargas según RatePerMile**")
+# Crear el mapa centrado en Estados Unidos
+m = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
+
+# Se añaden marcadores: azul si existe tarifa positiva, naranja si es nula o no positiva
+for _, row in df.iterrows():
+    color = "blue" if pd.notnull(row["RatePerMile"]) and row["RatePerMile"] > 0 else "orange"
+    folium.CircleMarker(
+        location=[row["LatOrigin"], row["LngOrigin"]],
+        radius=3,
+        color=color,
+        fill=True,
+    ).add_to(m)
+
+# Mostrar el mapa en Streamlit
+components.html(m._repr_html_(), height=600)
