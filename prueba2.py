@@ -3,9 +3,7 @@ import streamlit as st
 # Configuración de la página (DEBE SER LA PRIMERA LÍNEA DE STREAMLIT)
 st.set_page_config(page_title="Predicción de Tarifas de Carga", layout="wide")
 
-# Resto de las importaciones
-import pandas as pd
-from streamlit_folium import folium_static
+
 
 # Título de la aplicación
 st.title("📦 Predicción de Tarifas de Carga")
