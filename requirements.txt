@@ -3,5 +3,5 @@ pandas
 seaborn
 matplotlib
 numpy
-statsmodels.api
+statsmodels
 
