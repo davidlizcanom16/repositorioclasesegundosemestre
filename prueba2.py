@@ -10,7 +10,7 @@ import os
 import ast
 import folium
 import io
-import matplotlib.pyplot as plt
+import matplotlib.pyplot
 import seaborn as sns
 from streamlit_folium import folium_static
 
