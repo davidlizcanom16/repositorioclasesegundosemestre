@@ -321,4 +321,3 @@ for _, row in df.iterrows():
 
 st.write("Mapa: Cargas con y sin tarifa publicada por Estado")
 folium_static(m2)
-
