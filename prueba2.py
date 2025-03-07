@@ -3,7 +3,7 @@ import os
 import glob
 import ast
 import streamlit as st
-st.dataframe(summary_df)
+
 
 def load_data(folder_path="."):
     """Carga archivos parquet desde la carpeta especificada y los concatena en un DataFrame."""
