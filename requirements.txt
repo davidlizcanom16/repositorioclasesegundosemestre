@@ -1,10 +1,7 @@
-pandas
-seaborn
-matplotlib
-numpy
-plotly==5.15.0
-statsmodels
-ydata-profiling
-folium
-streamlit-folium
 streamlit
+pandas
+glob
+os
+ast
+folium
+streamlit_folium
