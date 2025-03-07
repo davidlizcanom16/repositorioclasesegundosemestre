@@ -1,4 +1,8 @@
 streamlit
 pandas
-streamlit_folium
-os
+json
+seaborn
+matplotlib
+numpy
+statsmodels.api
+
