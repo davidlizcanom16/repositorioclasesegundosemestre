@@ -1,50 +1,93 @@
 import streamlit as st
+import pandas as pd
+import json
+import seaborn as sns
+import matplotlib.pyplot as plt
+import glob
+import os
+import numpy as np
+import ast
+import plotly.express as px
+import statsmodels.formula.api as smf
+import statsmodels.api as sm
+import sweetviz as sv
 
-# Configuración de la página (DEBE SER LA PRIMERA LÍNEA DE STREAMLIT)
-st.set_page_config(page_title="Predicción de Tarifas de Carga", layout="wide")
+# Nota: En lugar de los comandos !pip install, asegúrate de incluir las dependencias
+# en un archivo requirements.txt para cuando despliegues la aplicación en Streamlit.
 
+# Configuración de la página
+st.set_page_config(page_title="Proyecto Final Modelos Analíticos", layout="wide")
 
+# Título y descripción del proyecto
+st.title("Proyecto Final Modelos Analíticos - Maestría Analítica Datos")
+st.markdown("""
+### Miembros del Equipo:
+- Karen Gomez
+- David Lizcano
+- Jason Barrios
+- Camilo Barriosnuevo
+""")
 
-# Título de la aplicación
-st.title("📦 Predicción de Tarifas de Carga")
+st.markdown("## Contexto de Negocio: Situación problema")
+st.markdown("""
+Empresa de bandera norteamericana dedicada a conectar generadores de carga y transportistas con las necesidades de envío a través de sus servicios tecnológicos, se encuentra en la búsqueda de predecir cuánto va a pagar un determinado cliente por carga transportada. Debido a la dinámica del mercado (oferta/demanda), algunos clientes no suelen publicar las tarifas de envío en el portal, generando incertidumbre en las condiciones de negociación con los transportistas.
 
-######################
-# Sección 1: Carga y Limpieza de Datos, Mapa de Ubicaciones de Origen
-######################
+El objetivo es suministrar información oportuna a los transportistas dando visibilidad a las ofertas de carga dependiendo de la zona, día, cliente y estimación de tarifas. Para ello se entrenará un modelo que estime la variable `RatePerMile` (tarifa por milla) y se comparará con la tarifa de mercado.
+""")
 
+st.markdown("## 1. Limpieza de información")
+st.markdown("### 1.1 Cargas Broker")
+st.markdown("""
+Acciones:
+- Filtrar broker.
+- Eliminar duplicados por ID.
+- Seleccionar sólo camiones [Vans].
+- Filtrar por [RatePerMile] (muchas observaciones publican sin tarifa).
+- Cambio de Estados de Origen y Destino por zonas (reducción).
+- Eliminar lanes intrahub.
+- Eliminar outliers generales.
+
+Output:
+Dataset para realizar el proyecto.
+""")
+
+# Función para cargar y combinar los archivos Parquet
 @st.cache_data
 def load_data():
-    folder_base = os.getcwd()
+    folder_base = os.getcwd()  # Asegúrate de que los archivos .parquet estén en esta carpeta
     parquet_files = glob.glob(os.path.join(folder_base, "*.parquet"))
-    
-    if not parquet_files:
-        st.error("No se encontraron archivos Parquet en la carpeta actual.")
-        return pd.DataFrame()
-    
-    dfs = [pd.read_parquet(file) for file in parquet_files]
+    dfs = []
+    for file in parquet_files:
+        df = pd.read_parquet(file)
+        dfs.append(df)
     df = pd.concat(dfs, ignore_index=True)
     df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
-    
     cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
             'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
             'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
     df = df[cols]
-    
+    # Guarda el dataset combinado (opcional)
+    df.to_parquet("loads.parquet")
     return df
 
+# Cargar los datos
 df = load_data()
+st.write("Dimensiones iniciales del DataFrame:", df.shape)
 
-st.write("### Datos Cargados:")
-if not df.empty:
-    st.dataframe(df.head())
-else:
-    st.write("No hay datos para mostrar.")
+st.markdown("#### Eliminación de duplicados")
+# Se asume que originalmente hay 18625 cargas y se calculan duplicados
+duplicados = 18625 - df['ID'].nunique()
+st.write("Número de duplicados a eliminar:", duplicados)
+df = df.drop_duplicates('ID', keep='first')
+st.write("Dimensiones tras eliminar duplicados:", df.shape)
 
-if not df.empty:
-    df = df.drop_duplicates('ID', keep='first')
-    st.write(f"### Registros después de eliminar duplicados: {df.shape[0]}")
+st.markdown("#### Manejo de Origen y Destino por Zona")
+st.write("Cantidad de estados únicos en origen y destino:",
+         df['StateOrigin'].nunique() + df['StateDestination'].nunique())
+st.write("Cantidad de ciudades únicas en origen y destino:",
+         df['CityOrigin'].nunique() + df['CityDestination'].nunique())
 
-@st.cache_data
+st.markdown("#### Asignación de Zonas USA")
 def get_zone(state_code):
     zones = {
         "Z0": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT"},
@@ -63,125 +106,51 @@ def get_zone(state_code):
             return zone
     return "Unknown"
 
-if not df.empty:
-    df['ZoneOrigin'] = df['StateOrigin'].apply(get_zone)
-    df['ZoneDestination'] = df['StateDestination'].apply(get_zone)
+df['ZoneOrigin'] = df['StateOrigin'].apply(get_zone)
+df['ZoneDestination'] = df['StateDestination'].apply(get_zone)
+st.write("Zonas de origen disponibles:", df['ZoneOrigin'].unique())
+
+st.markdown("#### Manejo de Camiones")
+st.write("Tipos de Equip disponibles inicialmente:", df['Equip'].unique())
 
 def filter_and_explode_equip(data):
+    if data.empty:
+        return pd.DataFrame()
     desired_values = ['Van', 'Reefer', 'Flatbed']
     column_name = 'Equip'
+    desired_values_set = set(desired_values)
+    # Convertir de string a lista si es necesario
     data[column_name] = data[column_name].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
     data = data[data[column_name].apply(lambda x: isinstance(x, list))]
-    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values])
+    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values_set])
     data = data[data[column_name].map(len) > 0]
-    return data.explode(column_name).reset_index(drop=True)
+    data = data.explode(column_name).reset_index(drop=True)
+    return data
 
-if not df.empty:
-    df = filter_and_explode_equip(df)
-    st.write(f"### Registros después de filtrar camiones: {df.shape[0]}")
+df = filter_and_explode_equip(df)
+st.write("Dimensiones tras filtrar camiones:", df.shape)
+st.write("Tipos de Equip filtrados:", df['Equip'].unique())
 
-def plot_map(data):
-    data = data.dropna(subset=['LatOrigin', 'LngOrigin'])
-    if data.empty:
-        return folium.Map(location=[39.8283, -98.5795], zoom_start=5)
-    center_lat = data['LatOrigin'].mean()
-    center_lng = data['LngOrigin'].mean()
-    m = folium.Map(location=[center_lat, center_lng], zoom_start=5)
-    for _, row in data.iterrows():
-        try:
-            lat = float(row['LatOrigin'])
-            lng = float(row['LngOrigin'])
-        except (TypeError, ValueError):
-            continue
-        folium.Marker(
-            location=[lat, lng],
-            popup=row['CityOrigin'],
-            icon=folium.Icon(color='blue', icon='cloud')
-        ).add_to(m)
-    return m
+st.markdown("#### Extracción del Día de la Semana")
+df['Posted'] = pd.to_datetime(df['Posted'])
+df['weekday'] = df['Posted'].dt.weekday
+df['weekday_name'] = df['Posted'].dt.day_name()
+pivot = df.pivot_table(index='weekday_name', values='ID', aggfunc='count')
+st.write("Conteo de registros por día de la semana:", pivot)
 
-st.write("### Mapa de Ubicaciones de Origen")
-if not df.empty:
-    folium_static(plot_map(df))
-else:
-    st.write("No hay datos para mostrar en el mapa.")
+st.markdown("#### Eliminación de registros del día 'Sunday'")
+df = df.drop(df.loc[df['weekday_name'] == 'Sunday'].index)
+st.write("Dimensiones tras eliminar registros de domingo:", df.shape)
 
-######################
-# Sección 2: Análisis Exploratorio de Datos 1
-######################
-st.header("Análisis Exploratorio de Datos 1")
+st.markdown("### Fin de la sección de Limpieza de Datos")
+st.write("El DataFrame final está listo para análisis posterior.")
 
-buffer = io.StringIO()
-df.info(buf=buffer)
-info_str = buffer.getvalue()
-st.text("Información del DataFrame:")
-st.text(info_str)
-
-st.write("Primeras 3 filas del DataFrame:")
-st.dataframe(df.head(3))
-
-null_counts = df.isnull().sum()
-st.write("Cantidad de valores nulos por columna:")
-st.write(null_counts)
-
-fig_heat, ax_heat = plt.subplots(figsize=(8, 6))
-sns.heatmap(df.isnull(), cbar=False, cmap='inferno', ax=ax_heat)
-ax_heat.set_title('Heatmap de Valores Nulos')
-ax_heat.set_xlabel('Columnas')
-ax_heat.set_ylabel('Filas')
-st.pyplot(fig_heat)
-
-filtered_df = df[df['RatePerMile'].isnull()]
-fig_hist, ax_hist = plt.subplots()
-sns.histplot(data=filtered_df, x='Equip', hue='Equip', ax=ax_hist)
-ax_hist.set_title('Histograma de valores nulos de RatePerMile por Equip')
-ax_hist.set_xlabel('Equip')
-ax_hist.set_ylabel('Cantidad de valores nulos')
-st.pyplot(fig_hist)
-
-summary = df.groupby('Equip')['RatePerMile'].agg(
-    total='size',
-    nulos=lambda x: x.isnull().sum(),
-    no_nulos='count'
+# (Opcional) Descargar el dataset limpio en formato CSV
+st.markdown("### Descargar Datos Limpios")
+csv = df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Descargar datos en CSV",
+    data=csv,
+    file_name='datos_limpios.csv',
+    mime='text/csv',
 )
-summary['% nulos por Equip'] = (summary['nulos'] / summary['total']) * 100
-summary['% nulos por Equip'] = summary['% nulos por Equip'].map("{:.2f}%".format)
-st.write("Estadísticas de RatePerMile por Equip:")
-st.dataframe(summary)
-
-st.write("Descripción del DataFrame:")
-st.write(df.describe())
-
-st.header("Mapa: Situación Actual - Cargas con y sin tarifa publicada por Estado")
-
-state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
-state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
-state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
-
-summary_df = pd.DataFrame({
-    'Envíos sin Rate': state_null_counts,
-    'Envíos con Rate': state_non_null_counts,
-    'Total_Envíos': state_total_counts
-})
-summary_df = summary_df.fillna(0).astype(int)
-summary_df['% Envíos null'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
-summary_df['% Envíos null'] = summary_df['% Envíos null'].map("{:.2f}%".format)
-summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
-
-st.write("Resumen de envíos por Estado:")
-st.dataframe(summary_df)
-
-m2 = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
-for _, row in df.iterrows():
-    if pd.notnull(row["LatOrigin"]) and pd.notnull(row["LngOrigin"]):
-        color = "blue" if (pd.notnull(row["RatePerMile"]) and row["RatePerMile"] > 0) else "orange"
-        folium.CircleMarker(
-            location=[row["LatOrigin"], row["LngOrigin"]],
-            radius=3,
-            color=color,
-            fill=True,
-            fill_opacity=0.7
-        ).add_to(m2)
-
-st.write("Mapa: Cargas con y sin tarifa publicada por Estado")
-folium_static(m2)
