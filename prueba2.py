@@ -5,12 +5,6 @@ st.set_page_config(page_title="Predicción de Tarifas de Carga", layout="wide")
 
 # Resto de las importaciones
 import pandas as pd
-import glob
-import os
-import ast
-import folium
-import io
-import seaborn as sns
 from streamlit_folium import folium_static
 
 # Título de la aplicación
