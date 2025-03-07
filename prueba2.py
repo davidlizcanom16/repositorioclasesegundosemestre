@@ -1,4 +1,5 @@
 import streamlit as st
+st.set_page_config(page_title="Predicción de Tarifas de Carga", layout="wide")
 import pandas as pd
 import glob
 import os
