@@ -286,7 +286,9 @@ st.dataframe(summary)
 st.write("Descripción del DataFrame:")
 st.write(df.describe())
 
+######################
 # Mapa: Situación Actual - Cargas con y sin tarifa publicada por Estado
+######################
 st.header("Mapa: Situación Actual - Cargas con y sin tarifa publicada por Estado")
 
 state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()  # Total de envíos por estado
