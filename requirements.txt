@@ -7,3 +7,4 @@ statsmodels
 ydata-profiling
 folium
 streamlit-folium
+streamlit
