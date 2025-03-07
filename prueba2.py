@@ -1,41 +1,45 @@
 import pandas as pd
-import json
-import seaborn as sns
-import matplotlib.pyplot as plt
-import glob
 import os
-import numpy as np
-import plotly.express as px
-import statsmodels.formula.api as smf
-import statsmodels.api as sm
-import folium
-import requests
+import glob
+import ast
 
+def load_data(folder_path="."):
+    """Carga archivos parquet desde la carpeta especificada y los concatena en un DataFrame."""
+    parquet_files = glob.glob(os.path.join(folder_path, "*.parquet"))
+    dfs = [pd.read_parquet(file) for file in parquet_files]
+    df = pd.concat(dfs, ignore_index=True)
+    df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
+    return df
 
-# Cargas
-df = pd.DataFrame()
+def clean_data(df):
+    """Realiza la limpieza de datos según los criterios establecidos."""
+    cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
+            'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
+            'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
+    df = df[cols]
+    
+    # Eliminar duplicados por ID
+    df = df.drop_duplicates('ID', keep='first')
+    
+    # Aplicar zonas de Estados Unidos
+    df['ZoneOrigin'] = df['StateOrigin'].apply(get_zone)
+    df['ZoneDestination'] = df['StateDestination'].apply(get_zone)
+    
+    # Filtrar por tipo de camión
+    df = filter_and_explode_equip(df)
+    
+    # Extraer día de la semana
+    df['Posted'] = pd.to_datetime(df['Posted'])
+    df['weekday'] = df['Posted'].dt.weekday
+    df['weekday_name'] = df['Posted'].dt.day_name()
+    
+    # Eliminar datos de domingo
+    df = df[df['weekday_name'] != 'Sunday']
+    
+    return df
 
-folder_base = os.getcwd()
-parquet_files = glob.glob(folder_base+"/*.parquet")
-
-dfs = []
-for file in parquet_files:
-    df = pd.read_parquet(file)
-    dfs.append(df)
-
-df = pd.concat(dfs, ignore_index=True)
-df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
-cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
- 'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
- 'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
-df = df[cols]
-df.to_parquet("loads.parquet")
-
-# Eliminación duplicados
-df = df.drop_duplicates('ID',keep='first')
-
-# Manejo de origen y destino por zona
 def get_zone(state_code):
+    """Asigna una zona a cada estado de EE.UU."""
     zones = {
         "Z0": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT"},
         "Z1": {"DE", "NY", "PA"},
@@ -53,89 +57,17 @@ def get_zone(state_code):
             return zone
     return "Unknown"
 
-df['ZoneOrigin'] = df['StateOrigin'].apply(lambda x: get_zone(x))
-df['ZoneDestination'] = df['StateDestination'].apply(lambda x: get_zone(x))
+def filter_and_explode_equip(df):
+    """Filtra y expande la columna de Equip para mantener solo los tipos deseados."""
+    desired_values = {'Van', 'Reefer', 'Flatbed'}
+    df['Equip'] = df['Equip'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    df = df[df['Equip'].apply(lambda x: isinstance(x, list))]
+    df['Equip'] = df['Equip'].apply(lambda x: [item for item in x if item in desired_values])
+    df = df[df['Equip'].map(len) > 0]
+    return df.explode('Equip').reset_index(drop=True)
 
-# Manejo de camiones
-import ast
-def filter_and_explode_equip(data):
-    if data.empty:
-        return pd.DataFrame()
-    desired_values = ['Van', 'Reefer', 'Flatbed']
-    column_name = 'Equip'
-    desired_values_set = set(desired_values)
-    data[column_name] = data[column_name].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
-    data = data[data[column_name].apply(lambda x: isinstance(x, list))]
-    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values_set])
-    data = data[data[column_name].map(len) > 0]
-    data = data.explode(column_name).reset_index(drop=True)
-    return data
-
-df = filter_and_explode_equip(df)
-
-# Extracción día de la semana
-df['Posted'] = pd.to_datetime(df['Posted'])
-df['weekday'] = df['Posted'].dt.weekday
-df['weekday_name'] = df['Posted'].dt.day_name()
-df = df.drop(df.loc[df['weekday_name']=='Sunday'].index)
-
-# Análisis Exploratorio de Datos
-
-## Análisis de valores nulos
-df.info()
-df.head(3)
-
-null_counts = df.isnull().sum()
-
-plt.figure(figsize=(8, 6))
-sns.heatmap(df.isnull(), cbar=False, cmap='inferno')
-plt.title('Heatmap de Valores Nulos')
-plt.xlabel('Columnas')
-plt.ylabel('Filas')
-plt.show()
-
-filtered_df = df[df['RatePerMile'].isnull()]
-sns.histplot(data=filtered_df, x='Equip', hue='Equip')
-plt.title('Histograma de valores nulos de RatePerMile por Equip')
-plt.xlabel('Equip')
-plt.ylabel('Cantidad de valores nulos')
-plt.show()
-
-summary = df.groupby('Equip')['RatePerMile'].agg(
-    total='size',
-    nulos=lambda x: x.isnull().sum(),
-    no_nulos='count'
-)
-summary['% nulos por Equip'] = (summary['nulos'] / summary['total']) * 100
-summary['% nulos por Equip'] = summary['% nulos por Equip'].map("{:.2f}%".format)
-print(summary)
-
-df.describe()
-
-# Mapa Situación Actual
-state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
-state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
-state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
-
-summary_df = pd.DataFrame({
-    'Envíos sin Rate': state_null_counts.reindex(state_total_counts.index, fill_value=0),
-    'Envíos con Rate': state_non_null_counts.reindex(state_total_counts.index, fill_value=0),
-    'Total_Envíos': state_total_counts
-})
-
-summary_df = summary_df.fillna(0).astype(int)
-summary_df['% Envíos null'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
-summary_df['% Envíos null'] = summary_df['% Envíos null'].map("{:.2f}%".format)
-summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
-display(summary_df)
-
-# Visualización en mapa
-m = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
-for _, row in df.iterrows():
-    folium.CircleMarker(
-        location=[row["LatOrigin"], row["LngOrigin"]],
-        color="Blue" if row["RatePerMile"] > 0 else "orange",
-        fill=True,
-    ).add_to(m)
-
-m
+if __name__ == "__main__":
+    df = load_data()
+    df = clean_data(df)
+    df.to_parquet("loads_cleaned.parquet")
+    print("Datos procesados y guardados en 'loads_cleaned.parquet'")
