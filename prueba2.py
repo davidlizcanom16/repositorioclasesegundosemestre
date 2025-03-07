@@ -1,47 +1,43 @@
-import pandas as pd
-import os
-import glob
-import ast
 import streamlit as st
+import pandas as pd
+import glob
+import os
+import ast
+import folium
+from streamlit_folium import folium_static
 
+# Configuración de la aplicación
+st.set_page_config(page_title="Predicción de Tarifas de Carga", layout="wide")
+st.title("📦 Predicción de Tarifas de Carga")
 
-def load_data(folder_path="."):
-    """Carga archivos parquet desde la carpeta especificada y los concatena en un DataFrame."""
-    parquet_files = glob.glob(os.path.join(folder_path, "*.parquet"))
+# Cargar datos
+@st.cache_data
+def load_data():
+    folder_base = os.getcwd()
+    parquet_files = glob.glob(folder_base + "/*.parquet")
+    
     dfs = [pd.read_parquet(file) for file in parquet_files]
     df = pd.concat(dfs, ignore_index=True)
     df['RatePerMile'] = pd.to_numeric(df['RatePerMile'], errors='coerce')
-    return df
-
-def clean_data(df):
-    """Realiza la limpieza de datos según los criterios establecidos."""
+    
     cols = ['ID', 'Posted', 'CityOrigin', 'LatOrigin', 'LngOrigin', 'CityDestination',
             'LatDestination', 'LngDestination', 'Size', 'Weight', 'Distance', 'RatePerMile',
             'Equip', 'StateOrigin', 'HubOrigin', 'StateDestination', 'HubDestination']
     df = df[cols]
     
-    # Eliminar duplicados por ID
-    df = df.drop_duplicates('ID', keep='first')
-    
-    # Aplicar zonas de Estados Unidos
-    df['ZoneOrigin'] = df['StateOrigin'].apply(get_zone)
-    df['ZoneDestination'] = df['StateDestination'].apply(get_zone)
-    
-    # Filtrar por tipo de camión
-    df = filter_and_explode_equip(df)
-    
-    # Extraer día de la semana
-    df['Posted'] = pd.to_datetime(df['Posted'])
-    df['weekday'] = df['Posted'].dt.weekday
-    df['weekday_name'] = df['Posted'].dt.day_name()
-    
-    # Eliminar datos de domingo
-    df = df[df['weekday_name'] != 'Sunday']
-    
     return df
 
+df = load_data()
+st.write("### Datos cargados:")
+st.dataframe(df.head())
+
+# Eliminación de duplicados
+df = df.drop_duplicates('ID', keep='first')
+st.write(f"### Registros después de eliminar duplicados: {df.shape[0]}")
+
+# Función para asignar zonas
+@st.cache_data
 def get_zone(state_code):
-    """Asigna una zona a cada estado de EE.UU."""
     zones = {
         "Z0": {"CT", "ME", "MA", "NH", "NJ", "RI", "VT"},
         "Z1": {"DE", "NY", "PA"},
@@ -59,17 +55,32 @@ def get_zone(state_code):
             return zone
     return "Unknown"
 
-def filter_and_explode_equip(df):
-    """Filtra y expande la columna de Equip para mantener solo los tipos deseados."""
-    desired_values = {'Van', 'Reefer', 'Flatbed'}
-    df['Equip'] = df['Equip'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
-    df = df[df['Equip'].apply(lambda x: isinstance(x, list))]
-    df['Equip'] = df['Equip'].apply(lambda x: [item for item in x if item in desired_values])
-    df = df[df['Equip'].map(len) > 0]
-    return df.explode('Equip').reset_index(drop=True)
+df['ZoneOrigin'] = df['StateOrigin'].apply(get_zone)
+df['ZoneDestination'] = df['StateDestination'].apply(get_zone)
 
-if __name__ == "__main__":
-    df = load_data()
-    df = clean_data(df)
-    df.to_parquet("loads_cleaned.parquet")
-    print("Datos procesados y guardados en 'loads_cleaned.parquet'")
+# Filtro de camiones
+def filter_and_explode_equip(data):
+    desired_values = ['Van', 'Reefer', 'Flatbed']
+    column_name = 'Equip'
+    data[column_name] = data[column_name].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    data = data[data[column_name].apply(lambda x: isinstance(x, list))]
+    data[column_name] = data[column_name].apply(lambda x: [item for item in x if item in desired_values])
+    data = data[data[column_name].map(len) > 0]
+    return data.explode(column_name).reset_index(drop=True)
+
+df = filter_and_explode_equip(df)
+st.write(f"### Registros después de filtrar camiones: {df.shape[0]}")
+
+# Mapa con ubicaciones de origen
+def plot_map(data):
+    m = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
+    for _, row in data.iterrows():
+        folium.Marker(
+            location=[row['LatOrigin'], row['LngOrigin']],
+            popup=row['CityOrigin'],
+            icon=folium.Icon(color='blue', icon='cloud')
+        ).add_to(m)
+    return m
+
+st.write("### Mapa de Ubicaciones de Origen")
+folium_static(plot_map(df))
