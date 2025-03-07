@@ -10,7 +10,7 @@ import ast
 import plotly.express as px
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
-import sweetviz as sv
+
 
 # Nota: En lugar de los comandos !pip install, asegúrate de incluir las dependencias
 # en un archivo requirements.txt para cuando despliegues la aplicación en Streamlit.
