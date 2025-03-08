@@ -217,6 +217,139 @@ fig_bar = px.bar(cargas_por_dia, x='Posted', y='Cantidad',
                  color_continuous_scale='Greys')
 st.plotly_chart(fig_bar)
 
+#########################################
+# 6. EDA DataFrame Final y Reporte Exploratorio
+#########################################
+
+import plotly.express as px
+import matplotlib.pyplot as plt
+import seaborn as sns
+import streamlit.components.v1 as components
+import pandas as pd
+
+st.header("6. EDA DataFrame Final")
+
+st.markdown("""
+A continuación se presentan diversas visualizaciones y análisis exploratorios que ayudan a comprender el comportamiento de la variable **RatePerMile** en el dataset final:
+- **Mapa interactivo:** Todas las cargas se muestran pintadas por tipo de camión y día.
+- **Series de tiempo:** Boxplot de *RatePerMile* por día de la semana para evidenciar su efecto.
+- **Combinaciones de zonas:** Se muestran las combinaciones de zona de origen y destino más frecuentes.
+- **Reporte exploratorio:** Se genera un reporte automatizado (usando *Pandas Profiling*) que reemplaza a Sweetviz.
+- **Matriz de correlación:** Se visualiza la correlación lineal entre variables numéricas.
+""")
+
+# Para este bloque se asume que la variable df_rates (o similar) contiene el dataset final
+# En este ejemplo, usamos df_rates obtenido en bloques anteriores tras eliminar outliers y registros con RatePerMile ≤ 0.
+# Si en tu código la variable es distinta, actualízala acorde.
+df_final = df_rates.copy()
+
+# --- Mapa interactivo de cargas por tipo de camión y día ---
+st.subheader("Mapa de Cargas (por Tipo de Camión y Día)")
+fig_map = px.scatter_mapbox(
+    df_final,
+    lat="LatOrigin",
+    lon="LngOrigin",
+    color="Equip",           # Colorea según el tipo de camión
+    hover_name="ID",
+    hover_data=["Posted"],
+    zoom=4,
+    height=600,
+    mapbox_style="open-street-map"
+)
+st.plotly_chart(fig_map)
+
+# --- Boxplot de RatePerMile por Día de la Semana ---
+st.subheader("Boxplot de RatePerMile por Día de la Semana")
+# Extraemos el nombre del día de la columna Posted
+df_final['weekday'] = pd.to_datetime(df_final['Posted']).dt.day_name()
+fig_box_time = px.box(
+    df_final,
+    x="weekday",
+    y="RatePerMile",
+    color="Equip",
+    title="RatePerMile por Día de la Semana",
+    category_orders={"weekday": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]}
+)
+st.plotly_chart(fig_box_time)
+
+# --- Combinaciones de Zonas Más Frecuentes ---
+st.subheader("Combinaciones de Zonas Más Frecuentes")
+# Se crea la columna que combina la zona de origen y la de destino
+df_final['ZoneCombination'] = df_final['ZoneOrigin'] + '-' + df_final['ZoneDestination']
+combination_counts = df_final['ZoneCombination'].value_counts().reset_index()
+combination_counts.columns = ['ZoneCombination', 'Count']
+
+fig_bar_zones = px.bar(
+    combination_counts.head(10),
+    x='ZoneCombination',
+    y='Count',
+    title='Top 10 Combinaciones de Zonas',
+    color='ZoneCombination',
+    color_discrete_sequence=px.colors.qualitative.Prism
+)
+st.plotly_chart(fig_bar_zones)
+
+st.subheader("Boxplot de RatePerMile por Trayecto")
+fig_box_zones = px.box(
+    df_final,
+    x="ZoneCombination",
+    y="RatePerMile",
+    category_orders={"ZoneCombination": df_final.groupby("ZoneCombination")["RatePerMile"].mean().sort_values(ascending=False).index},
+    title="Boxplot de RatePerMile por Trayecto",
+    color='ZoneCombination',
+    color_discrete_sequence=px.colors.qualitative.Prism
+)
+fig_box_zones.update_xaxes(tickangle=-45)
+st.plotly_chart(fig_box_zones)
+
+# --- Reporte Exploratorio Automatizado (reemplazo de Sweetviz) ---
+st.subheader("Reporte Exploratorio Automatizado")
+st.markdown("""
+Se utiliza **Pandas Profiling** (a través de la librería *ydata_profiling*) para generar un reporte exploratorio detallado de las variables del dataset y su asociación.  
+Este reporte ayuda a identificar distribuciones, correlaciones y posibles problemas en los datos.
+""")
+try:
+    from ydata_profiling import ProfileReport
+    profile = ProfileReport(df_final, title="Reporte Exploratorio de Cargas", explorative=True)
+    report_html = profile.to_html()
+    st.components.v1.html(report_html, height=800, scrolling=True)
+except ModuleNotFoundError:
+    st.error("El módulo 'ydata_profiling' no está instalado. Por favor, instálalo o agrégalo a tu requirements.txt para ver el reporte exploratorio.")
+
+# --- Matriz de Correlación ---
+st.subheader("Matriz de Correlación de Variables Numéricas")
+df_num = df_final.select_dtypes(include=['number'])
+correlation_matrix = df_num.corr()
+fig_corr, ax_corr = plt.subplots(figsize=(8, 6))
+sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5, ax=ax_corr)
+ax_corr.set_title("Mapa de Calor de la Matriz de Correlación")
+st.pyplot(fig_corr)
+
+# --- Mapa de Trayectos por Combinación de Zonas ---
+st.subheader("Mapa de Trayectos por Combinación de Zonas")
+# Se define una paleta de colores para las combinaciones de zonas
+unique_combinations = df_final["ZoneCombination"].unique()
+colores = [
+    "red", "blue", "green", "yellow", "orange", "purple",
+    "pink", "brown", "gray", "black", "cyan", "magenta",
+    "lime", "teal", "olive", "navy", "maroon", "aquamarine",
+    "coral", "fuchsia", "silver", "gold", "indigo", "lavender"
+]
+paleta_colores = {zone: colores[i % len(colores)] for i, zone in enumerate(unique_combinations)}
+
+mapa_zones = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
+for idx, row in df_final.iterrows():
+    folium.CircleMarker(
+        location=[row["LatOrigin"], row["LngOrigin"]],
+        radius=5,
+        color=paleta_colores.get(row["ZoneCombination"], "gray"),
+        fill=True,
+        fill_color=paleta_colores.get(row["ZoneCombination"], "gray"),
+        popup=row["ZoneCombination"],
+        tooltip=row["ZoneCombination"]
+    ).add_to(mapa_zones)
+st.markdown("Mapa interactivo de trayectos por combinaciones de zonas:")
+st.components.v1.html(mapa_zones._repr_html_(), height=500)
 
 #########################################
 # 4. Análisis de Clustering y Zonas Geográficas (usando loads.parquet)
