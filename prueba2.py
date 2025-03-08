@@ -70,12 +70,13 @@ def pagina_datos():
         
         with col1:
             st.subheader("Valores Nulos en el Dataset")
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(df.isnull(), cbar=False, cmap='inferno')
-            plt.title('Heatmap de Valores Nulos')
-            plt.xlabel('Columnas')
-            plt.ylabel('Filas')
-            st.pyplot(plt)
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.heatmap(df.isnull(), cbar=False, cmap='inferno', ax=ax)
+            ax.set_title('Heatmap de Valores Nulos')
+            ax.set_xlabel('Columnas')
+            ax.set_ylabel('Filas')
+            st.pyplot(fig)
+            plt.close(fig)
         
         with col2:
             st.subheader("Porcentaje de Envíos con y sin Rate por Estado")
