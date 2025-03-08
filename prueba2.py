@@ -155,11 +155,7 @@ def pagina_datos():
 
 
     # Crear una fila adicional con tres columnas (izquierda, central, derecha)
-    col1, col_center, col2 = st.columns([1, 2, 1])  # Establece la proporción de las columnas
-    
-    # Columna 1 (izquierda) - Puede estar vacía o tener contenido adicional
-    with col1:
-        st.write("")  # Deja vacío o agrega algo si lo deseas
+    col_center = st.columns([1])  # Establece la proporción de las columnas
     
     # Columna central (en el medio de las dos anteriores)
     with col_center:
@@ -179,10 +175,7 @@ def pagina_datos():
             components.html(html_content, height=600)  # Ajusta la altura según sea necesario
         else:
             st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
-    
-    # Columna 2 (derecha) - Puede estar vacía o tener contenido adicional
-    with col2:
-        st.write("")  # Deja vacío o agrega algo si lo deseas
+
 
 
 # --- Pestaña 3: Modelo de Predicción ---
