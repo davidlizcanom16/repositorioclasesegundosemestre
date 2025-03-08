@@ -205,7 +205,38 @@ def load_model():
     else:
         st.error("⚠️ No se encontró el archivo random_forest_model.pkl")
         return None
-
+import streamlit as st
+import pandas as pd
+import json
+import seaborn as sns
+import matplotlib.pyplot as plt
+import glob
+import os
+import numpy as np
+import ipywidgets as widgets
+from IPython.display import display
+import plotly.express as px
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import sweetviz as sv
+from sklearn.cluster import DBSCAN
+from geopy.distance import great_circle
+from sklearn.metrics import silhouette_score, davies_bouldin_score
+import folium
+import scipy.stats as stats
+import statsmodels.stats.api as sms
+from statsmodels.compat import lzip
+import itertools
+from statsmodels.stats.stattools import durbin_watson, jarque_bera
+from scipy.stats import jarque_bera, shapiro, normaltest
+from statsmodels.stats.diagnostic import het_breuschpagan
+from sklearn.preprocessing import LabelEncoder
+import warnings
+import sys
+import subprocess
+import pickle  # Asegúrate de importar pickle aquí
+from streamlit_folium import folium_static
+import streamlit.components.v1 as components
 model = load_model()
 
 cities = pd.concat(
