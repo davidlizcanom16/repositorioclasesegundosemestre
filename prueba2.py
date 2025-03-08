@@ -70,21 +70,20 @@ def pagina_introduccion():
     df_loads = load_loads_data()
     # Crear una columna única
     col = st.columns([1])  # El valor 1 indica el ancho de la columna
-    
     # Columna única
     with col[0]: 
-    if not df_loads.empty:
-        m = folium.Map(location=[39.8283, -98.5795], zoom_start=4)
-        for _, row in df_loads.iterrows():
-            folium.CircleMarker(
-                location=[row["LatOrigin"], row["LngOrigin"]],
-                color="Blue" if row["RatePerMile"] > 0 else "Orange",
-                fill=True,
-            ).add_to(m)
-        st_folium(m, width=1800, height=600)
-        folium_static(m)
-    else:
-        st.warning("No hay datos disponibles para mostrar en el mapa.")
+        if not df_loads.empty:
+            m = folium.Map(location=[39.8283, -98.5795], zoom_start=4)
+            for _, row in df_loads.iterrows():
+                folium.CircleMarker(
+                    location=[row["LatOrigin"], row["LngOrigin"]],
+                    color="Blue" if row["RatePerMile"] > 0 else "Orange",
+                    fill=True,
+                ).add_to(m)
+            st_folium(m, width=1800, height=600)
+            folium_static(m)
+        else:
+            st.warning("No hay datos disponibles para mostrar en el mapa.")
 
 
 
