@@ -11,3 +11,6 @@ ydata-profiling
 folium
 streamlit-folium
 category-encoders
+scipy
+sweetviz
+
