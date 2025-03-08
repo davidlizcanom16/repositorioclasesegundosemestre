@@ -73,7 +73,7 @@ def pagina_introduccion():
     # Columna única
     with col[0]: 
         if not df_loads.empty:
-            m = folium.Map(location=[39.8283, -98.5795], zoom_start=4)
+            m = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
             for _, row in df_loads.iterrows():
                 folium.CircleMarker(
                     location=[row["LatOrigin"], row["LngOrigin"]],
