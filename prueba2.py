@@ -52,10 +52,71 @@ def pagina_introduccion():
 # --- Pestaña 2: Datos Utilizados ---
 def pagina_datos():
     st.title("Datos Utilizados")
-    st.write("Esta aplicación utiliza dos conjuntos de datos principales:")
-    st.write("1. **dataset.parquet**: Contiene la información detallada de las cargas.")
-    st.write("2. **Xtest_encoded.parquet**: Contiene la versión codificada de los datos utilizada para hacer predicciones.")
-    st.write("El modelo de predicción ha sido entrenado previamente y guardado como **random_forest_model.pkl**.")
+    st.write("Esta aplicación utiliza datos de **loads.parquet**, que contiene información detallada sobre los envíos de carga.")
+    
+    @st.cache_data
+    def load_loads_data():
+        file_path = "loads.parquet"
+        if os.path.exists(file_path):
+            return pd.read_parquet(file_path)
+        else:
+            st.error("⚠️ No se encontró el archivo loads.parquet")
+            return pd.DataFrame()
+    
+    df = load_loads_data()
+    
+    if not df.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Valores Nulos en el Dataset")
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(df.isnull(), cbar=False, cmap='inferno')
+            plt.title('Heatmap de Valores Nulos')
+            plt.xlabel('Columnas')
+            plt.ylabel('Filas')
+            st.pyplot(plt)
+        
+        with col2:
+            st.subheader("Porcentaje de Envíos con y sin Rate por Estado")
+            state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
+            state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
+            state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
+            
+            summary_df = pd.DataFrame({
+                'Envíos sin Rate': state_null_counts,
+                'Envíos con Rate': state_non_null_counts,
+                'Total_Envíos': state_total_counts
+            }).fillna(0).astype(int)
+            
+            summary_df['% Envíos sin Rate'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
+            summary_df['% Envíos con Rate'] = (summary_df['Envíos con Rate'] / summary_df['Total_Envíos']) * 100
+            summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
+            
+            fig, ax = plt.subplots(figsize=(12, 6))
+            colors = ['red', 'green']
+            summary_df[['% Envíos sin Rate', '% Envíos con Rate']].plot(
+                kind="bar", stacked=True, color=colors, ax=ax
+            )
+            
+            for i, state in enumerate(summary_df.index):
+                y_sin = summary_df.loc[state, '% Envíos sin Rate']
+                y_con = summary_df.loc[state, '% Envíos con Rate']
+                total_sin = summary_df.loc[state, 'Envíos sin Rate']
+                total_con = summary_df.loc[state, 'Envíos con Rate']
+                
+                if total_sin > 0:
+                    ax.text(i, y_sin / 2, f"{y_sin:.1f}%", ha='center', va='center', fontsize=8, color='white', fontweight='bold')
+                if total_con > 0:
+                    ax.text(i, y_sin + y_con / 2, f"{y_con:.1f}%", ha='center', va='center', fontsize=8, color='white', fontweight='bold')
+            
+            plt.ylabel("Porcentaje de Envíos")
+            plt.xlabel("Estado de Origen")
+            plt.title("Porcentaje de Envíos con y sin Rate por Estado")
+            plt.xticks(rotation=45)
+            plt.legend(["Sin Rate", "Con Rate"], loc="upper right")
+            plt.grid(axis="y", linestyle="--", alpha=0.7)
+            st.pyplot(fig)
 
 # --- Pestaña 3: Modelo de Predicción ---
 def pagina_modelo():
