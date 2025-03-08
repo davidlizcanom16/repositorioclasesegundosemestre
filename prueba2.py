@@ -48,6 +48,11 @@ def load_data():
 def pagina_introduccion():
     st.title("Introducción")
     st.write("Estimación de los precios de fletes de transporte de mercancias en USA.")
+    st.subtitle("Integrantes:")
+    st.write("-Jason Barrios")
+    st.write("-Camilo BarriosNuevo")
+    st.write("-Karen Gomez")
+    st.write("David Lizcano")
 
     # --- Visualización del mapa con datos de loads.parquet ---
     st.subheader("Visualización de Cargas en el Mapa")
