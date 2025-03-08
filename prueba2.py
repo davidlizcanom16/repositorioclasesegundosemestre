@@ -161,23 +161,26 @@ def pagina_datos():
             st.pyplot(fig)
             plt.close(fig)
 
-      # --- Reporte Sweetviz con scroll ---
-    st.subheader("Análisis Exploratorio con Sweetviz")
-    col1, col2 = st.columns([1, 3])
+      
+    # Crear una columna única
+    col = st.columns([1])  # El valor 1 indica el ancho de la columna
     
-    with col1:
+    # Columna única
+    with col[0]:  # Accedemos al primer (y único) elemento de la lista
+        # Mostrar el ícono de Sweetviz
         st.image("images/sweetviz.png", width=50)
     
-    with col2:
+        # Ruta del archivo HTML en el directorio principal
         html_file_path = "SWEETVIZ_REPORT.html"
+        
+        # Verificar si el archivo existe antes de cargarlo
         if os.path.exists(html_file_path):
+            # Cargar el contenido del archivo HTML
             with open(html_file_path, "r") as file:
                 html_content = file.read()
-            
-            st.markdown(
-                f'<div style="overflow-x: auto; overflow-y: auto; height:600px; width:100%; border:1px solid #ccc; padding:10px">{html_content}</div>',
-                unsafe_allow_html=True
-            )
+    
+            # Insertar el archivo HTML en la app de Streamlit
+            components.html(html_content, height=1000)  # Ajusta la altura según sea necesario
         else:
             st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
 
