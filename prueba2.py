@@ -78,7 +78,7 @@ with st.expander("Información General del DataFrame"):
 st.subheader("Valores Nulos")
 st.write(df.isnull().sum())
 
-fig_heat, ax = plt.subplots(figsize=(4, 2))
+fig_heat, ax = plt.subplots(figsize=(2, 1))
 sns.heatmap(df.isnull(), cbar=False, cmap='inferno', ax=ax)
 ax.set_title("Heatmap de Nulos")
 st.pyplot(fig_heat)
