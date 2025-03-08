@@ -144,6 +144,17 @@ def pagina_datos():
             
             st.pyplot(fig)
             plt.close(fig)
+# --- Mostrar el ícono ---
+st.image("images/sweetviz.png", width=50)  # Ajusta el tamaño según lo necesario
+
+# --- Crear un enlace que abra el archivo HTML al hacer clic en el ícono ---
+html_file_path = "SWEETVIZ_REPORT.html"  # Ruta del archivo HTML
+
+# Verificar si el archivo existe antes de crear el enlace
+if os.path.exists(html_file_path):
+    st.markdown(f'<a href="{html_file_path}" target="_blank"><img src="images/sweetviz.png" width="50"></a>', unsafe_allow_html=True)
+else:
+    st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
 
 # --- Pestaña 3: Modelo de Predicción ---
 def pagina_modelo():
