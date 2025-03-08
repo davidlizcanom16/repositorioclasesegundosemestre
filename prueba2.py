@@ -31,6 +31,7 @@ import pickle  # Asegúrate de importar pickle aquí
 from streamlit_folium import folium_static
 import streamlit.components.v1 as components
 from PIL import Image
+from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
