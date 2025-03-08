@@ -10,3 +10,4 @@ geopy
 ydata-profiling
 folium
 streamlit-folium
+category-encoders
