@@ -140,8 +140,8 @@ def pagina_dueno():
                 st.write(f"**Distancia:** {distancia_km} km ({distancia_mi:.2f} mi)")
                 
                 st.subheader("Estimación de Pago:")
-                st.write(f"💰 **mínimo:** ${min_value:.2f}  PerMile -> **total:  ${ min_value * distancia_mi:.2f} USD**")
-                st.write(f"💰 **máximo:** ${max_value:.2f}  PerMile -> **total:  ${ max_value * distancia_mi:.2f} USD**")
+                st.write(f"💰 **mínimo:** ${min_value:.2f} PerMile -> (${ min_value * distancia_mi:.2f} USD)")
+                st.write(f"💰 **máximo:** ${max_value:.2f} PerMile -> (${ max_value * distancia_mi:.2f} USD)")
         else:
             st.warning("No se encontró la fila correspondiente en Xtest_encoded.parquet.")
     else:
