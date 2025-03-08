@@ -105,7 +105,27 @@ def pagina_dueno():
                 
                 # Organizar la vista en tres columnas
                 col1, col2, col3 = st.columns([1, 2, 1])
-                
+                with col1:
+                  st.subheader("Detalles de la Carga")
+                  st.write(f"**Origen:** {carga['CityOrigin']}")
+                  st.write(f"**Destino:** {carga['CityDestination']}")
+                  st.write(f"**Peso:** {carga['Weight']} lbs")
+                  st.write(f"**Tamaño:** {carga['Size']} cu ft")
+                  
+                  equip = carga['Equip'].lower()
+                  image_path = f"images/{equip}.png"
+                  if os.path.exists(image_path):
+                      st.image(image_path, caption=equip)
+                  else:
+                      st.warning(f"Imagen no encontrada: {image_path}")
+              
+                with col2:
+                    st.subheader("Ruta en Mapa")
+                    mapa = folium.Map(location=[carga['LatOrigin'], carga['LngOrigin']], zoom_start=6)
+                    folium.Marker([carga['LatOrigin'], carga['LngOrigin']], tooltip="Origen").add_to(mapa)
+                    folium.Marker([carga['LatDestination'], carga['LngDestination']], tooltip="Destino").add_to(mapa)
+                    folium_static(mapa)
+              
                 with col3:
                     st.subheader("Distancia Estimada")
                     st.write(f"**Distancia:** {st.session_state['distancia']} km")
