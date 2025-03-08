@@ -27,6 +27,7 @@ import warnings
 import sys
 import subprocess
 
+pip freeze > requirements.txt
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
