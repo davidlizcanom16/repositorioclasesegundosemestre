@@ -97,7 +97,6 @@ def pagina_dueno():
     if "carga" in st.session_state and "carga_idx" in st.session_state:
         pagina_generar_carga()
         
-        st.subheader("Estimación de Pago")
         idx = st.session_state["carga_idx"]
         if model is not None and "distancia" in st.session_state:
             if idx in df_encoded.index:
@@ -105,8 +104,16 @@ def pagina_dueno():
                 pred = model.predict(features)[0]
                 min_value = pred * 0.9
                 max_value = pred * 1.1
-                st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
-                st.write(f"💰 **Valor máximo:** ${max_value:.2f}")
+                
+                # Organizar la vista en tres columnas
+                col1, col2, col3 = st.columns([1, 2, 1])
+                
+                with col3:
+                    st.subheader("Distancia Estimada")
+                    st.write(f"**Distancia:** {st.session_state['distancia']} km")
+                    st.subheader("Estimación de Pago")
+                    st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
+                    st.write(f"💰 **Valor máximo:** ${max_value:.2f}")
             else:
                 st.warning("No se encontró la fila correspondiente en Xtest_encoded.parquet.")
         else:
