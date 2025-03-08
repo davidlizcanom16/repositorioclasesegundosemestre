@@ -5,7 +5,6 @@ import folium
 from streamlit_folium import folium_static
 import os
 import pickle
-from category_encoders import TargetEncoder
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
@@ -22,6 +21,17 @@ def load_data():
 df = load_data()
 
 @st.cache_data
+def load_encoded_data():
+    file_path = "Xtest_encoded.parquet"
+    if os.path.exists(file_path):
+        return pd.read_parquet(file_path)
+    else:
+        st.error("⚠️ No se encontró el archivo Xtest_encoded.parquet")
+        return pd.DataFrame()
+
+df_encoded = load_encoded_data()
+
+@st.cache_data
 def load_model():
     model_path = "random_forest_model.pkl"
     if os.path.exists(model_path):
@@ -33,45 +43,22 @@ def load_model():
 
 model = load_model()
 
-@st.cache_data
-def load_encoder():
-    encoder_path = "encoder.pkl"
-    if os.path.exists(encoder_path):
-        with open(encoder_path, "rb") as enc_file:
-            return pickle.load(enc_file)
-    else:
-        st.error("⚠️ No se encontró el archivo encoder.pkl")
-        return None
-
-encoder = load_encoder()
-
-# --- Preprocesar los datos antes de predecir ---
-def preprocess_data(carga, feature_columns):
-    df_temp = pd.DataFrame([carga])
-    cat_columns = ['CityOrigin', 'CityDestination', 'Equip', 'StateOrigin', 'StateDestination']
-    
-    if encoder is not None:
-        df_temp[cat_columns] = encoder.transform(df_temp[cat_columns])
-    else:
-        st.error("⚠️ No se pudo aplicar Target Encoding porque el encoder no está disponible.")
-        return None
-    
-    return df_temp[feature_columns]
-
 # --- Generar una carga aleatoria ---
 def generar_carga():
     if df.empty:
         st.error("⚠️ No hay datos disponibles.")
-        return None
-    return df.sample(1).iloc[0]
+        return None, None
+    carga = df.sample(1)
+    return carga, carga.index[0]  # Devolvemos la fila y su índice
 
 # --- Página 1: Generar Carga ---
 def pagina_generar_carga():
     st.title("Generar Carga")
     if st.button("Generar Carga"):
-        carga = generar_carga()
+        carga, idx = generar_carga()
         if carga is not None:
-            st.session_state["carga"] = carga
+            st.session_state["carga"] = carga.iloc[0]
+            st.session_state["carga_idx"] = idx
     
     if "carga" in st.session_state:
         carga = st.session_state["carga"]
@@ -107,21 +94,21 @@ def pagina_generar_carga():
 # --- Página 2: Vista Dueño del Vehículo ---
 def pagina_dueno():
     st.title("Vista Dueño del Vehículo")
-    if "carga" in st.session_state:
+    if "carga" in st.session_state and "carga_idx" in st.session_state:
         pagina_generar_carga()
         
         st.subheader("Estimación de Pago")
+        idx = st.session_state["carga_idx"]
         if model is not None and "distancia" in st.session_state:
-            feature_columns = model.feature_names_in_
-            features = preprocess_data(st.session_state['carga'], feature_columns)
-            if features is not None:
+            if idx in df_encoded.index:
+                features = df_encoded.loc[idx].values.reshape(1, -1)  # Seleccionamos la misma fila en Xtest_encoded
                 pred = model.predict(features)[0]
                 min_value = pred * 0.9
                 max_value = pred * 1.1
                 st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
                 st.write(f"💰 **Valor máximo:** ${max_value:.2f}")
             else:
-                st.warning("No se pudo calcular el pago debido a un problema con la transformación de datos.")
+                st.warning("No se encontró la fila correspondiente en Xtest_encoded.parquet.")
         else:
             st.warning("No se pudo calcular el pago. Asegúrate de que el modelo está cargado y los datos están correctamente procesados.")
     else:
