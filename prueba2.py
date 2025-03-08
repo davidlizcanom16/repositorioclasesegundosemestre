@@ -50,10 +50,10 @@ def pagina_introduccion():
     st.title("Introducción")
     st.write("Estimación de los precios de fletes de transporte de mercancias en USA.")
     st.subheader("Integrantes:")
-    st.write("-Jason Barrios")
-    st.write("-Camilo BarriosNuevo")
-    st.write("-Karen Gomez")
-    st.write("David Lizcano")
+    st.write("- Jason Barrios")
+    st.write("- Camilo BarriosNuevo")
+    st.write("- Karen Gomez")
+    st.write("- David Lizcano")
 
     # --- Visualización del mapa con datos de loads.parquet ---
     st.subheader("Visualización de Cargas en el Mapa")
@@ -68,7 +68,11 @@ def pagina_introduccion():
             return pd.DataFrame()
     
     df_loads = load_loads_data()
+    # Crear una columna única
+    col = st.columns([1])  # El valor 1 indica el ancho de la columna
     
+    # Columna única
+    with col[0]: 
     if not df_loads.empty:
         m = folium.Map(location=[39.8283, -98.5795], zoom_start=4)
         for _, row in df_loads.iterrows():
