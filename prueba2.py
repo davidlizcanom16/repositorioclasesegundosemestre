@@ -20,13 +20,14 @@ import scipy.stats as stats
 import statsmodels.stats.api as sms
 from statsmodels.compat import lzip
 import itertools
-from statsmodels.stats.stattools import durbin_watson,jarque_bera
+from statsmodels.stats.stattools import durbin_watson, jarque_bera
 from scipy.stats import jarque_bera, shapiro, normaltest
 from statsmodels.stats.diagnostic import het_breuschpagan
 from sklearn.preprocessing import LabelEncoder
 import warnings
 import sys
 import subprocess
+import pickle  # Asegúrate de importar pickle aquí
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
