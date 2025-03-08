@@ -83,41 +83,43 @@ def pagina_datos():
             state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
             state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
             state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
-            
+        
             summary_df = pd.DataFrame({
                 'Envíos sin Rate': state_null_counts,
                 'Envíos con Rate': state_non_null_counts,
                 'Total_Envíos': state_total_counts
             }).fillna(0).astype(int)
-            
+        
             summary_df['% Envíos sin Rate'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
             summary_df['% Envíos con Rate'] = (summary_df['Envíos con Rate'] / summary_df['Total_Envíos']) * 100
             summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
-            
+        
             fig, ax = plt.subplots(figsize=(12, 6))
             colors = ['red', 'green']
             summary_df[['% Envíos sin Rate', '% Envíos con Rate']].plot(
                 kind="bar", stacked=True, color=colors, ax=ax
             )
-            
+        
             for i, state in enumerate(summary_df.index):
                 y_sin = summary_df.loc[state, '% Envíos sin Rate']
                 y_con = summary_df.loc[state, '% Envíos con Rate']
                 total_sin = summary_df.loc[state, 'Envíos sin Rate']
                 total_con = summary_df.loc[state, 'Envíos con Rate']
-                
+        
                 if total_sin > 0:
                     ax.text(i, y_sin / 2, f"{y_sin:.1f}%", ha='center', va='center', fontsize=8, color='white', fontweight='bold')
                 if total_con > 0:
                     ax.text(i, y_sin + y_con / 2, f"{y_con:.1f}%", ha='center', va='center', fontsize=8, color='white', fontweight='bold')
+        
+            ax.set_ylabel("Porcentaje de Envíos")
+            ax.set_xlabel("Estado de Origen")
+            ax.set_title("Porcentaje de Envíos con y sin Rate por Estado")
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+            ax.legend(["Sin Rate", "Con Rate"], loc="upper right")
+            ax.grid(axis="y", linestyle="--", alpha=0.7)
             
-            plt.ylabel("Porcentaje de Envíos")
-            plt.xlabel("Estado de Origen")
-            plt.title("Porcentaje de Envíos con y sin Rate por Estado")
-            plt.xticks(rotation=45)
-            plt.legend(["Sin Rate", "Con Rate"], loc="upper right")
-            plt.grid(axis="y", linestyle="--", alpha=0.7)
             st.pyplot(fig)
+            plt.close(fig)
 
 # --- Pestaña 3: Modelo de Predicción ---
 def pagina_modelo():
