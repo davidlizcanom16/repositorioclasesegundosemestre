@@ -145,16 +145,24 @@ def pagina_datos():
             st.pyplot(fig)
             plt.close(fig)
             
-            # --- Mostrar el ícono ---
-            st.image("images/sweetviz.png", width=100)  # Ajusta el tamaño según lo necesario
-            # --- Crear un enlace que abra el archivo HTML al hacer clic en el ícono ---
-            html_file_path = "SWEETVIZ_REPORT.html"  # Ruta del archivo HTML
-            # Verificar si el archivo existe antes de crear el enlace
+            import streamlit.components.v1 as components
+            
+            # Mostrar el ícono
+            st.image("images/sweetviz.png", width=50)
+            
+            # Ruta del archivo HTML en el directorio principal
+            html_file_path = "SWEETVIZ_REPORT.html"
+            
+            # Verificar si el archivo existe antes de cargarlo
             if os.path.exists(html_file_path):
-                st.markdown(f'<a href="{html_file_path}" target="_blank"><img src="images/sweetviz.png" width="50"></a>', unsafe_allow_html=True)
+                # Cargar el contenido del archivo HTML
+                with open(html_file_path, "r") as file:
+                    html_content = file.read()
+                
+                # Insertar el archivo HTML en la app de Streamlit
+                components.html(html_content, height=600)  # Ajusta la altura según sea necesario
             else:
                 st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
-
 # --- Pestaña 3: Modelo de Predicción ---
 def pagina_modelo():
     st.title("Modelo de Predicción")
