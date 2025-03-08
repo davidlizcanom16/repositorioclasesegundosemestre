@@ -320,6 +320,8 @@ try:
 except ModuleNotFoundError:
     st.error("El módulo 'ydata_profiling' no está instalado. Por favor, instálalo o agrégalo a tu requirements.txt para ver el reporte exploratorio.")
 
+st.image("WhatsApp Image 2025-03-08 at 12.44.13 AM.jpeg", caption="Imagen del Repositorio", use_column_width=True)
+
 # --- Matriz de Correlación ---
 st.subheader("Matriz de Correlación de Variables Numéricas")
 df_num = df_final.select_dtypes(include=['number'])
