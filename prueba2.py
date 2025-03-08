@@ -102,6 +102,121 @@ summary = df.groupby('Equip')['RatePerMile'].agg(
 summary['% nulos'] = (summary['nulos'] / summary['total'] * 100).map("{:.2f}%".format)
 st.write(summary)
 
+#########################################
+# 5. Eliminación de RatePerMile NaN y Tratamiento de Outliers
+#########################################
+
+import plotly.express as px
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+st.header("5. Eliminación de RatePerMile NaN y Tratamiento de Outliers")
+st.markdown("""
+En esta sección se eliminan los registros sin información de tarifa (RatePerMile ≤ 0), 
+ya que la idea es utilizar la información de pago conocida para predecir el comportamiento de pago de aquellas cargas sin tarifa.  
+Además, se procede a eliminar outliers que, por distancias cortas o errores de tipeo, generan valores atípicos y ruido en la predicción.
+""")
+
+# Se asume que 'df' es el DataFrame base obtenido de "loads.parquet" en bloques anteriores
+# Para este bloque, filtramos registros con RatePerMile > 0
+df_rates = df.loc[df['RatePerMile'] > 0].copy()
+
+# Pivot table para ver la cantidad de cargas por tipo de camión
+piv = df_rates.pivot_table(index='Equip', values='ID', aggfunc='count')
+st.subheader("Cargas con RatePerMile definido por tipo de camión")
+st.dataframe(piv)
+st.write("Total de cargas con RatePerMile:", piv['ID'].sum())
+
+st.markdown("""
+Existen solo 4455 cargas con información de RatePerMile en los camiones principales.
+""")
+
+# Eliminación de registros donde HubOrigin y HubDestination son iguales (casos de distancias cortas)
+st.subheader("Eliminación de outliers por resolución 'Hub'")
+num_hub_iguales = len(df_rates.loc[df_rates['HubOrigin'] == df_rates['HubDestination']].index)
+st.write("Número de cargas con HubOrigin igual a HubDestination:", num_hub_iguales)
+
+df_rates = df_rates.drop(df_rates[df_rates['HubOrigin'] == df_rates['HubDestination']].index)
+st.write("Dimensiones después de eliminar Hub iguales:", df_rates.shape)
+
+st.markdown("""
+Ahora, se procede a eliminar outliers que pueden ser resultado de errores de tipeo o input del broker.  
+Se utiliza el rango intercuartílico (IQR) de la variable **RatePerMile** como referencia.
+""")
+
+def remove_outliers_iqr(data, col):
+    Q1 = data[col].quantile(0.25)
+    Q3 = data[col].quantile(0.75)
+    IQR = Q3 - Q1
+    mask = ~((data[col] < (Q1 - 1.5 * IQR)) | (data[col] > (Q3 + 1.5 * IQR)))
+    return data[mask]
+
+df_rates = remove_outliers_iqr(df_rates, 'RatePerMile')
+st.write("Dimensiones después de eliminar outliers en RatePerMile:", df_rates.shape)
+
+st.markdown("""
+Se observa una distribución normal de la variable **RatePerMile** para las cargas analizadas, 
+donde cerca del 50% se encuentran entre 1.94 y 3.1 USD por milla.
+""")
+
+# Histograma de RatePerMile
+fig_hist, ax_hist = plt.subplots()
+ax_hist.hist(df_rates['RatePerMile'], range=(0, 7), bins=100, color='steelblue', edgecolor='white')
+ax_hist.set_xlabel('RatePerMile')
+ax_hist.set_ylabel('Frecuencia')
+ax_hist.set_title('Histograma de RatePerMile')
+st.pyplot(fig_hist)
+
+# Boxplot general de RatePerMile (usando Plotly)
+fig_box = px.box(df_rates, y="RatePerMile", title="Boxplot de RatePerMile")
+st.plotly_chart(fig_box)
+
+st.markdown("## Análisis General por Tipo de Camión")
+st.markdown("""
+Luego de realizar el análisis gráfico (diagrama de cajas y bigotes), se observa que existen traslapes entre los bigotes y ligeras diferencias en las medias de **RatePerMile** entre los tipos de camión.  
+- *Flatbed* presenta una media ligeramente más alta (≈ 2.85 USD)  
+- *Van* (≈ 2.48 USD)  
+- *Reefer* (≈ 2.29 USD)  
+Se plantea la siguiente hipótesis:
+
+**$H_0$=** No hay diferencia significativa en la media de RatePerMile entre los diferentes tipos de camión.  
+**$H_1$=** Al menos un tipo de camión tiene una media significativamente diferente.
+
+Se aplicó un análisis de varianzas (ANOVA) para evaluar la hipótesis.
+""")
+
+# Boxplot por tipo de camión usando Plotly
+fig_box_equip = px.box(df_rates, x="Equip", y="RatePerMile", color="Equip", title="Boxplot de RatePerMile por Tipo de Camión")
+st.plotly_chart(fig_box_equip)
+
+# Boxplot por zona de destino y tipo de camión usando Seaborn
+fig_sns, ax_sns = plt.subplots(figsize=(10, 6))
+sns.boxplot(data=df_rates, x='ZoneDestination', y='RatePerMile', hue='Equip', ax=ax_sns)
+ax_sns.set_title("Boxplot de RatePerMile por ZoneDestination y Equip")
+st.pyplot(fig_sns)
+
+# ANOVA: Evaluación del efecto de Equip sobre RatePerMile
+model = smf.ols('RatePerMile ~ Equip', data=df_rates).fit()
+anova_table = sm.stats.anova_lm(model, typ=2)
+st.subheader("ANOVA: RatePerMile ~ Equip")
+st.write(anova_table)
+
+st.markdown("### Análisis de Cargas Publicadas por Día")
+st.markdown("""
+Se agrupan las cargas por día (usando la fecha de publicación) para conocer la cantidad de cargas publicadas.  
+Este análisis puede complementarse con la variable **weekday** para identificar patrones semanales.
+""")
+# Agrupar por día y contar IDs únicos
+cargas_por_dia = df_rates.groupby(df_rates['Posted'].dt.date)['ID'].nunique().reset_index()
+cargas_por_dia.rename(columns={'ID': 'Cantidad'}, inplace=True)
+
+fig_bar = px.bar(cargas_por_dia, x='Posted', y='Cantidad',
+                 title='Cantidad de Cargas Publicadas por Día',
+                 labels={'Posted': 'Día', 'Cantidad': 'Número de Cargas'},
+                 color='Cantidad',
+                 color_continuous_scale='Greys')
+st.plotly_chart(fig_bar)
+
 
 #########################################
 # 4. Análisis de Clustering y Zonas Geográficas (usando loads.parquet)
