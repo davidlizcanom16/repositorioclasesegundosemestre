@@ -28,6 +28,7 @@ import warnings
 import sys
 import subprocess
 import pickle  # Asegúrate de importar pickle aquí
+from streamlit_folium import folium_static
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
