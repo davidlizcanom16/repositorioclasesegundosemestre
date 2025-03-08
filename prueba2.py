@@ -95,8 +95,6 @@ def pagina_generar_carga():
 def pagina_dueno():
     st.title("Vista Dueño del Vehículo")
     if "carga" in st.session_state and "carga_idx" in st.session_state:
-        pagina_generar_carga()
-        
         idx = st.session_state["carga_idx"]
         if model is not None and "distancia" in st.session_state:
             if idx in df_encoded.index:
