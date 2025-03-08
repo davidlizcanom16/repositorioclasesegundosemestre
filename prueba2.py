@@ -12,7 +12,7 @@ st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 # --- Cargar datos y modelo ---
 @st.cache_data
 def load_data():
-    file_path = "dataset.parquet"  # Volvemos a usar dataset.parquet
+    file_path = "dataset.parquet"
     if os.path.exists(file_path):
         return pd.read_parquet(file_path)
     else:
@@ -79,7 +79,17 @@ def pagina_generar_carga():
         
         with col1:
             st.subheader("Detalles de la Carga")
-            st.write(carga)
+            st.write(f"**Origen:** {carga['CityOrigin']}")
+            st.write(f"**Destino:** {carga['CityDestination']}")
+            st.write(f"**Peso:** {carga['Weight']} lbs")
+            st.write(f"**Tamaño:** {carga['Size']} cu ft")
+            
+            equip = carga['Equip'].lower()
+            image_path = f"images/{equip}.png"
+            if os.path.exists(image_path):
+                st.image(image_path, caption=equip)
+            else:
+                st.warning(f"Imagen no encontrada: {image_path}")
         
         with col2:
             st.subheader("Ruta en Mapa")
