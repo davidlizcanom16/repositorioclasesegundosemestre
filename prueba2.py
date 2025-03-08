@@ -51,11 +51,21 @@ def preprocess_data(carga, feature_columns):
     df_temp = pd.DataFrame([carga])
     cat_columns = ['CityOrigin', 'CityDestination', 'Equip', 'StateOrigin', 'StateDestination']
     
+    st.write("Columnas en df_temp antes de transformación:", df_temp.columns)
     if encoder is not None:
+        missing_cols = [col for col in cat_columns if col not in df_temp.columns]
+        for col in missing_cols:
+            df_temp[col] = ""  # Rellenar columnas faltantes con valores vacíos
+        
+        st.write("Valores en df_temp antes de transformación:", df_temp[cat_columns].head())
         df_temp[cat_columns] = encoder.transform(df_temp[cat_columns])
     else:
         st.error("⚠️ No se pudo aplicar Target Encoding porque el encoder no está disponible.")
         return None
+    
+    missing_features = [col for col in feature_columns if col not in df_temp.columns]
+    for col in missing_features:
+        df_temp[col] = 0  # Asegurar que todas las características esperadas están presentes
     
     return df_temp[feature_columns]
 
