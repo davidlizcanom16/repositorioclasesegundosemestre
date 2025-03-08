@@ -154,35 +154,35 @@ def pagina_datos():
             plt.close(fig)
 
 
-# Crear una fila adicional con tres columnas (izquierda, central, derecha)
-col1, col_center, col2 = st.columns([1, 2, 1])  # Establece la proporción de las columnas
-
-# Columna 1 (izquierda) - Puede estar vacía o tener contenido adicional
-with col1:
-    st.write("")  # Deja vacío o agrega algo si lo deseas
-
-# Columna central (en el medio de las dos anteriores)
-with col_center:
-    # Mostrar el ícono de Sweetviz
-    st.image("images/sweetviz.png", width=50)
-
-    # Ruta del archivo HTML en el directorio principal
-    html_file_path = "SWEETVIZ_REPORT.html"
+    # Crear una fila adicional con tres columnas (izquierda, central, derecha)
+    col1, col_center, col2 = st.columns([1, 2, 1])  # Establece la proporción de las columnas
     
-    # Verificar si el archivo existe antes de cargarlo
-    if os.path.exists(html_file_path):
-        # Cargar el contenido del archivo HTML
-        with open(html_file_path, "r") as file:
-            html_content = file.read()
-
-        # Insertar el archivo HTML en la app de Streamlit
-        components.html(html_content, height=600)  # Ajusta la altura según sea necesario
-    else:
-        st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
-
-# Columna 2 (derecha) - Puede estar vacía o tener contenido adicional
-with col2:
-    st.write("")  # Deja vacío o agrega algo si lo deseas
+    # Columna 1 (izquierda) - Puede estar vacía o tener contenido adicional
+    with col1:
+        st.write("")  # Deja vacío o agrega algo si lo deseas
+    
+    # Columna central (en el medio de las dos anteriores)
+    with col_center:
+        # Mostrar el ícono de Sweetviz
+        st.image("images/sweetviz.png", width=50)
+    
+        # Ruta del archivo HTML en el directorio principal
+        html_file_path = "SWEETVIZ_REPORT.html"
+        
+        # Verificar si el archivo existe antes de cargarlo
+        if os.path.exists(html_file_path):
+            # Cargar el contenido del archivo HTML
+            with open(html_file_path, "r") as file:
+                html_content = file.read()
+    
+            # Insertar el archivo HTML en la app de Streamlit
+            components.html(html_content, height=600)  # Ajusta la altura según sea necesario
+        else:
+            st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
+    
+    # Columna 2 (derecha) - Puede estar vacía o tener contenido adicional
+    with col2:
+        st.write("")  # Deja vacío o agrega algo si lo deseas
 
 
 # --- Pestaña 3: Modelo de Predicción ---
