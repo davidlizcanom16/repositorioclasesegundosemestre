@@ -102,13 +102,13 @@ def pagina_dueno():
     
     carga = st.session_state["carga"]
     idx = st.session_state["carga_idx"]
-
+    MAPE = 0.1164  # Valor del Mape del Modelo en Validación
     if model is not None and "distancia" in st.session_state:
         if idx in df_encoded.index:
             features = df_encoded.loc[idx].values.reshape(1, -1)  # Seleccionamos la misma fila en Xtest_encoded
             pred = model.predict(features)[0]
-            min_value = pred * 0.9
-            max_value = pred * 1.1
+            min_value = pred - (pred * MAPE)
+            max_value = pred + (pred * MAPE)
             
             # Organizar la vista en tres columnas
             col1, col2, col3 = st.columns([1, 2, 1])
@@ -135,7 +135,9 @@ def pagina_dueno():
             
             with col3:
                 st.subheader("Distancia Estimada")
-                st.write(f"**Distancia:** {st.session_state['distancia']} km")
+                distancia_km = st.session_state["distancia"]
+                distancia_mi = distancia_km * 0.621371
+                st.write(f"**Distancia:** {distancia_km} km ({distancia_mi:.2f} mi)")
                 
                 st.subheader("Estimación de Pago")
                 st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
