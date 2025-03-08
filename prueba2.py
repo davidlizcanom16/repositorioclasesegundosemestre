@@ -5,6 +5,7 @@ import folium
 from streamlit_folium import folium_static
 import os
 import pickle
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
