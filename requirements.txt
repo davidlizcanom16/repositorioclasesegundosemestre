@@ -3,14 +3,11 @@ pandas
 seaborn
 matplotlib
 numpy
-statsmodels
+ipywidgets
 plotly
+statsmodels
+sweetviz
 scikit-learn
 geopy
-ydata-profiling
 folium
-streamlit-folium
-category-encoders
 scipy
-sweetviz
-
