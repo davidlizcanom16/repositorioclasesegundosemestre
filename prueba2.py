@@ -21,12 +21,7 @@ def load_data():
 # --- Pestaña 1: Introducción ---
 def pagina_introduccion():
     st.title("Introducción")
-    st.write("Esta aplicación ha sido desarrollada en Google Colab y desplegada usando Streamlit.")
-    st.write("Proporciona una herramienta para la gestión de cargas en logística, permitiendo visualizar rutas, estimar costos y analizar datos de transporte.")
-    st.write("### Funcionalidades:")
-    st.write("- Generación de carga aleatoria con detalles del origen y destino.")
-    st.write("- Visualización de la ruta en un mapa interactivo.")
-    st.write("- Cálculo del costo estimado de transporte utilizando un modelo de Machine Learning.")
+    st.write("Estimación de los precios de fletes de transporte de mercancias en USA.")
 
     # --- Visualización del mapa con datos de loads.parquet ---
     st.subheader("Visualización de Cargas en el Mapa")
