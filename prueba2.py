@@ -185,7 +185,7 @@ def pagina_modelo():
     st.write("El modelo ha sido entrenado con datos reales de transporte y utiliza variables como el tipo de vehículo, la distancia y el peso para hacer las predicciones.")
 
      # URL directa de la imagen en tu repositorio
-    imagen_url = "https://github.com/usuario/tu-repositorio/raw/main/tree.pdf"
+    imagen_url = "https://github.com/davidlizcanom16/repositorioclasesegundosemestre/blob/26103a3cdbaf2555b059d961038a6855d6012724/tree.pdf"
     # Crear un enlace de descarga en Streamlit
     st.markdown(f"[Haz clic aquí para descargar Random Forest]( {imagen_url} )")
 
