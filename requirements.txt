@@ -8,3 +8,9 @@ plotly
 scikit-learn
 geopy
 ydata_profiling
+streamlit
+pandas
+numpy
+folium
+streamlit-folium
+pickle5  # Para compatibilidad con pickle en algunas versiones
