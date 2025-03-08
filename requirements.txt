@@ -7,3 +7,4 @@ statsmodels
 plotly
 scikit-learn
 geopy
+ydata_profiling
