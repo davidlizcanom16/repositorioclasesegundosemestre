@@ -153,12 +153,11 @@ def pagina_datos():
             st.pyplot(fig)
             plt.close(fig)
 
-
-    # Crear una fila adicional con tres columnas (izquierda, central, derecha)
-    col_center = st.columns([1])  # Establece la proporción de las columnas
+    # Crear una columna única
+    col = st.columns([1])  # El valor 1 indica el ancho de la columna
     
-    # Columna central (en el medio de las dos anteriores)
-    with col_center:
+    # Columna única
+    with col[0]:  # Accedemos al primer (y único) elemento de la lista
         # Mostrar el ícono de Sweetviz
         st.image("images/sweetviz.png", width=50)
     
@@ -175,7 +174,6 @@ def pagina_datos():
             components.html(html_content, height=600)  # Ajusta la altura según sea necesario
         else:
             st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
-
 
 
 # --- Pestaña 3: Modelo de Predicción ---
