@@ -77,7 +77,7 @@ def pagina_introduccion():
                 color="Blue" if row["RatePerMile"] > 0 else "Orange",
                 fill=True,
             ).add_to(m)
-        st_folium(m, width=1000, height=600)
+        st_folium(m, width=1800, height=600)
         folium_static(m)
     else:
         st.warning("No hay datos disponibles para mostrar en el mapa.")
