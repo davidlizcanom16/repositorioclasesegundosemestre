@@ -208,6 +208,134 @@ def load_model():
 
 model = load_model()
 
+cities = pd.concat(
+    [df[['ID', 'LatOrigin', 'LngOrigin','StateOrigin']].rename(columns={'StateOrigin':'State','LatOrigin': 'Lat', 'LngOrigin': 'Lng'}),
+        df[['ID', 'LatDestination', 'LngDestination','StateDestination']].rename(columns={'StateDestination':'State','LatDestination': 'Lat', 'LngDestination': 'Lng'})
+    ],
+    ignore_index=True
+)
+
+#analizar ciudades únicas dado que hay ciudades duplicadas por camión, o porque el destino o el origen se repite varias veces
+cities = cities.drop_duplicates(subset=['Lat', 'Lng'])
+
+def generar_mapa_clusters(df, lat_col='Lat', lon_col='Lng', cluster_col='cluster', zoom_start=5):
+    mapa = folium.Map(location=[df[lat_col].mean(), df[lon_col].mean()], zoom_start=zoom_start)
+
+    # Obtener los clusters únicos excluyendo outliers (-1 si aplica)
+    clusters_unicos = df[cluster_col].unique()
+    clusters_unicos = clusters_unicos[clusters_unicos != -1]
+
+    # Obtener colormap con suficientes colores
+    colors = plt.cm.get_cmap('gist_ncar', len(clusters_unicos))
+
+    # Crear un diccionario de colores para cada cluster
+    cluster_colors = {
+        cluster: "#{:02x}{:02x}{:02x}".format(
+            int(colors(i / len(clusters_unicos))[0] * 255),  # Rojo
+            int(colors(i / len(clusters_unicos))[1] * 255),  # Verde
+            int(colors(i / len(clusters_unicos))[2] * 255)   # Azul
+        )
+        for i, cluster in enumerate(clusters_unicos)
+    }
+
+    # Dibujar círculos de los clusters
+    for cluster in clusters_unicos:
+        df_cluster = df[df[cluster_col] == cluster]
+        centroide_lat = df_cluster[lat_col].mean()
+        centroide_lon = df_cluster[lon_col].mean()
+
+        # Calcular radio (máxima distancia al centroide en millas)
+        max_dist_mi = max(df_cluster.apply(
+            lambda row: great_circle((centroide_lat, centroide_lon), (row[lat_col], row[lon_col])).miles,
+            axis=1
+        ))
+
+        # Agregar el círculo del cluster
+        folium.Circle(
+            location=[centroide_lat, centroide_lon],
+            radius=max_dist_mi * 1609.34,  # Convertir mi a metros
+            color=cluster_colors[cluster],
+            fill=True,
+            fill_color=cluster_colors[cluster],
+            fill_opacity=0.4,
+            popup=f"Cluster {cluster} (Radio: {max_dist_mi:.2f} mi)"
+        ).add_to(mapa)
+
+    # Dibujar los puntos individuales
+    for _, row in df.iterrows():
+        folium.CircleMarker(
+            location=[row[lat_col], row[lon_col]],
+            radius=2,  # Tamaño del punto
+            color="black",  # Borde del punto
+            fill=True,
+            fill_color="blue",  # Color del punto
+            fill_opacity=0.6
+        ).add_to(mapa)
+
+    return mapa
+
+eps_values = np.arange(10/69, 100/69, 0.15)  # De 10 a 100 millas, paso de 0.15 grados (1 grado son 69 millas)
+min_samples_values = np.arange(5, 31, 5)  # De 5 a 30, paso de 5
+
+resultados = []
+
+for eps in eps_values:
+    for min_samples in min_samples_values:
+        dbscan = DBSCAN(eps=eps, min_samples=min_samples) #cuantas cargas quieres unir, y cuánto de distancia entre cargas te hace sentido
+        cities['cluster'] = dbscan.fit_predict(cities[['Lat', 'Lng']])
+
+        # Contar clusters (excluyendo -1 que es ruido)
+        num_clusters = len(set(cities['cluster'])) - (1 if -1 in cities['cluster'].values else 0)
+        noise_ratio = (cities['cluster'] == -1).sum() / len(cities)  # Proporción de ruido
+
+        # Calcular métricas solo si hay más de 1 cluster válido
+        valid_clusters = cities[cities['cluster'] != -1]
+        if num_clusters > 1:
+            silhouette = silhouette_score(valid_clusters[['Lat', 'Lng']], valid_clusters['cluster'])
+            db_index = davies_bouldin_score(valid_clusters[['Lat', 'Lng']], valid_clusters['cluster'])
+        else:
+            silhouette, db_index = np.nan, np.nan  # Evitar errores si hay 1 solo cluster
+
+        resultados.append({
+            'eps (mi)': eps * 69,  # Convertir de grados a millas
+            'min_samples': min_samples,
+            'num_clusters': num_clusters,
+            'silhouette': silhouette,
+            'davies_bouldin': db_index,
+            'noise_ratio': noise_ratio
+        })
+
+# Convertir a DataFrame y ordenar por Silhouette Score
+df_resultados = pd.DataFrame(resultados).sort_values(by='silhouette', ascending=False)
+display(df_resultados.loc[df_resultados['noise_ratio']<0.5].head(10))  # Mostrar los mejores 10 resultados
+
+mejor_modelo = df_resultados[df_resultados['silhouette'] == df_resultados['silhouette'].max()].iloc[0]
+
+# Mostrar los parámetros del mejor modelo
+print(f"📌 Mejor Modelo:")
+print(mejor_modelo)
+
+dbscan = DBSCAN(eps=mejor_modelo['eps (mi)'] / 69, min_samples=int(mejor_modelo['min_samples']))
+cities['cluster'] = dbscan.fit_predict(cities[['Lat', 'Lng']])
+print("Numero de clusters: ", cities['cluster'].nunique()-1)
+
+mejor_modelo = df_resultados[df_resultados['noise_ratio'] == df_resultados['noise_ratio'].min()].iloc[0]
+
+# Mostrar los parámetros del mejor modelo
+print(f"📌 Mejor Modelo:")
+print(mejor_modelo)
+
+dbscan = DBSCAN(eps=mejor_modelo['eps (mi)'] / 69, min_samples=int(mejor_modelo['min_samples']))
+cities['cluster'] = dbscan.fit_predict(cities[['Lat', 'Lng']])
+print("Numero de clusters: ", cities['cluster'].nunique()-1)
+
+generar_mapa_clusters(cities)
+
+with col[0]:
+    st.write("### El mapa resultante del último bloque de código:")
+    mapa = generar_mapa_clusters(cities)  # Llama a la función para generar el mapa
+    components.folium_static(mapa)  # Muestra el mapa en la app de Streamlit
+
 # --- Generar una carga aleatoria ---
 def generar_carga():
     if df.empty:
