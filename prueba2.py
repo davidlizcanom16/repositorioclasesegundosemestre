@@ -67,6 +67,10 @@ st.sidebar.header("Resumen de Datos")
 st.sidebar.write("Dimensiones:", df.shape)
 st.sidebar.write("Equipos:", df['Equip'].unique())
 
+#########################################
+# EDA 1 sin clusters
+#########################################
+
 # --- Exploración de Datos ---
 st.header("Exploración de Datos")
 with st.expander("Información General del DataFrame"):
@@ -103,7 +107,7 @@ summary['% nulos'] = (summary['nulos'] / summary['total'] * 100).map("{:.2f}%".f
 st.write(summary)
 
 #########################################
-# 5. Eliminación de RatePerMile NaN y Tratamiento de Outliers
+#  Eliminación de RatePerMile NaN y Tratamiento de Outliers
 #########################################
 
 import plotly.express as px
@@ -218,7 +222,7 @@ fig_bar = px.bar(cargas_por_dia, x='Posted', y='Cantidad',
 st.plotly_chart(fig_bar)
 
 #########################################
-# 6. EDA DataFrame Final y Reporte Exploratorio
+# EDA DataFrame Final y Reporte Exploratorio
 #########################################
 
 import plotly.express as px
