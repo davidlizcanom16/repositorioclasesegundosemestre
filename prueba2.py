@@ -49,7 +49,7 @@ def generar_carga():
         st.error("⚠️ No hay datos disponibles.")
         return None, None
     carga = df.sample(1)
-    return carga, carga.index[0]  # Devolvemos la fila y su índice
+    return carga.iloc[0], carga.index[0]  # Devolvemos la fila como serie y su índice
 
 # --- Página 1: Generar Carga ---
 def pagina_generar_carga():
@@ -57,7 +57,7 @@ def pagina_generar_carga():
     if st.button("Generar Carga"):
         carga, idx = generar_carga()
         if carga is not None:
-            st.session_state["carga"] = carga.iloc[0]
+            st.session_state["carga"] = carga
             st.session_state["carga_idx"] = idx
     
     if "carga" in st.session_state:
@@ -94,51 +94,56 @@ def pagina_generar_carga():
 # --- Página 2: Vista Dueño del Vehículo ---
 def pagina_dueno():
     st.title("Vista Dueño del Vehículo")
-    if "carga" in st.session_state and "carga_idx" in st.session_state:
-        idx = st.session_state["carga_idx"]
-        if model is not None and "distancia" in st.session_state:
-            if idx in df_encoded.index:
-                features = df_encoded.loc[idx].values.reshape(1, -1)  # Seleccionamos la misma fila en Xtest_encoded
-                pred = model.predict(features)[0]
-                min_value = pred * 0.9
-                max_value = pred * 1.1
-                
-                # Organizar la vista en tres columnas
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col1:
-                  st.subheader("Detalles de la Carga")
-                  st.write(f"**Origen:** {carga['CityOrigin']}")
-                  st.write(f"**Destino:** {carga['CityDestination']}")
-                  st.write(f"**Peso:** {carga['Weight']} lbs")
-                  st.write(f"**Tamaño:** {carga['Size']} cu ft")
-                  
-                  equip = carga['Equip'].lower()
-                  image_path = f"images/{equip}.png"
-                  if os.path.exists(image_path):
-                      st.image(image_path, caption=equip)
-                  else:
-                      st.warning(f"Imagen no encontrada: {image_path}")
-              
-                with col2:
-                    st.subheader("Ruta en Mapa")
-                    mapa = folium.Map(location=[carga['LatOrigin'], carga['LngOrigin']], zoom_start=6)
-                    folium.Marker([carga['LatOrigin'], carga['LngOrigin']], tooltip="Origen").add_to(mapa)
-                    folium.Marker([carga['LatDestination'], carga['LngDestination']], tooltip="Destino").add_to(mapa)
-                    folium_static(mapa)
-              
-                with col3:
-                    st.subheader("Distancia Estimada")
-                    st.write(f"**Distancia:** {st.session_state['distancia']} km")
-                    
-                    st.subheader("Estimación de Pago")
-                    st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
-                    st.write(f"💰 **Valor máximo:** ${max_value:.2f}")
-            else:
-                st.warning("No se encontró la fila correspondiente en Xtest_encoded.parquet.")
-        else:
-            st.warning("No se pudo calcular el pago. Asegúrate de que el modelo está cargado y los datos están correctamente procesados.")
-    else:
+    
+    # Verificar si la carga está en el estado
+    if "carga" not in st.session_state or "carga_idx" not in st.session_state:
         st.warning("Genera una carga primero en la otra página.")
+        return
+    
+    carga = st.session_state["carga"]
+    idx = st.session_state["carga_idx"]
+
+    if model is not None and "distancia" in st.session_state:
+        if idx in df_encoded.index:
+            features = df_encoded.loc[idx].values.reshape(1, -1)  # Seleccionamos la misma fila en Xtest_encoded
+            pred = model.predict(features)[0]
+            min_value = pred * 0.9
+            max_value = pred * 1.1
+            
+            # Organizar la vista en tres columnas
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col1:
+                st.subheader("Detalles de la Carga")
+                st.write(f"**Origen:** {carga['CityOrigin']}")
+                st.write(f"**Destino:** {carga['CityDestination']}")
+                st.write(f"**Peso:** {carga['Weight']} lbs")
+                st.write(f"**Tamaño:** {carga['Size']} cu ft")
+                
+                equip = carga['Equip'].lower()
+                image_path = f"images/{equip}.png"
+                if os.path.exists(image_path):
+                    st.image(image_path, caption=equip)
+                else:
+                    st.warning(f"Imagen no encontrada: {image_path}")
+            
+            with col2:
+                st.subheader("Ruta en Mapa")
+                mapa = folium.Map(location=[carga['LatOrigin'], carga['LngOrigin']], zoom_start=6)
+                folium.Marker([carga['LatOrigin'], carga['LngOrigin']], tooltip="Origen").add_to(mapa)
+                folium.Marker([carga['LatDestination'], carga['LngDestination']], tooltip="Destino").add_to(mapa)
+                folium_static(mapa)
+            
+            with col3:
+                st.subheader("Distancia Estimada")
+                st.write(f"**Distancia:** {st.session_state['distancia']} km")
+                
+                st.subheader("Estimación de Pago")
+                st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
+                st.write(f"💰 **Valor máximo:** ${max_value:.2f}")
+        else:
+            st.warning("No se encontró la fila correspondiente en Xtest_encoded.parquet.")
+    else:
+        st.warning("No se pudo calcular el pago. Asegúrate de que el modelo está cargado y los datos están correctamente procesados.")
 
 # --- Menú de Navegación ---
 pagina = st.sidebar.selectbox("Selecciona una página", ["Generar Carga", "Vista Dueño del Vehículo"])
