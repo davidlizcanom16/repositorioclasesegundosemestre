@@ -28,6 +28,32 @@ def pagina_introduccion():
     st.write("- Visualización de la ruta en un mapa interactivo.")
     st.write("- Cálculo del costo estimado de transporte utilizando un modelo de Machine Learning.")
 
+    # --- Visualización del mapa con datos de loads.parquet ---
+    st.subheader("Visualización de Cargas en el Mapa")
+    
+    @st.cache_data
+    def load_loads_data():
+        file_path = "loads.parquet"
+        if os.path.exists(file_path):
+            return pd.read_parquet(file_path)
+        else:
+            st.error("⚠️ No se encontró el archivo loads.parquet")
+            return pd.DataFrame()
+    
+    df_loads = load_loads_data()
+    
+    if not df_loads.empty:
+        m = folium.Map(location=[39.8283, -98.5795], zoom_start=5)
+        for _, row in df_loads.iterrows():
+            folium.CircleMarker(
+                location=[row["LatOrigin"], row["LngOrigin"]],
+                color="Blue" if row["RatePerMile"] > 0 else "Orange",
+                fill=True,
+            ).add_to(m)
+        folium_static(m)
+    else:
+        st.warning("No hay datos disponibles para mostrar en el mapa.")
+
 # --- Pestaña 2: Datos Utilizados ---
 def pagina_datos():
     st.title("Datos Utilizados")
