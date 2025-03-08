@@ -74,90 +74,33 @@ def pagina_introduccion():
     else:
         st.warning("No hay datos disponibles para mostrar en el mapa.")
 
-# --- Pestaña 2: Datos Utilizados ---
-def pagina_datos():
-    st.title("Datos Utilizados")
-    st.write("Esta aplicación utiliza datos de **loads.parquet**, que contiene información detallada sobre los envíos de carga.")
-    
-    @st.cache_data
-    def load_loads_data():
-        file_path = "loads.parquet"
-        if os.path.exists(file_path):
-            return pd.read_parquet(file_path)
-        else:
-            st.error("⚠️ No se encontró el archivo loads.parquet")
-            return pd.DataFrame()
-    
-    df = load_loads_data()
-    
-    if not df.empty:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Valores Nulos en el Dataset")
-            fig, ax = plt.subplots(figsize=(8, 6))
-            sns.heatmap(df.isnull(), cbar=False, cmap='inferno', ax=ax)
-            ax.set_title('Heatmap de Valores Nulos')
-            ax.set_xlabel('Columnas')
-            ax.set_ylabel('Filas')
-            st.pyplot(fig)
-            plt.close(fig)
-        
-        with col2:
-            st.subheader("Porcentaje de Envíos con y sin Rate por Estado")
-            state_total_counts = df.groupby('StateOrigin')['RatePerMile'].size()
-            state_non_null_counts = df.groupby('StateOrigin')['RatePerMile'].count()
-            state_null_counts = df[df['RatePerMile'].isnull()].groupby('StateOrigin').size()
-        
-            summary_df = pd.DataFrame({
-                'Envíos sin Rate': state_null_counts,
-                'Envíos con Rate': state_non_null_counts,
-                'Total_Envíos': state_total_counts
-            }).fillna(0).astype(int)
-        
-            summary_df['% Envíos sin Rate'] = (summary_df['Envíos sin Rate'] / summary_df['Total_Envíos']) * 100
-            summary_df['% Envíos con Rate'] = (summary_df['Envíos con Rate'] / summary_df['Total_Envíos']) * 100
-            summary_df = summary_df.sort_values(by=['Total_Envíos'], ascending=False)
-        
-            fig, ax = plt.subplots(figsize=(12, 6))
-            colors = ['red', 'green']
-            summary_df[['% Envíos sin Rate', '% Envíos con Rate']].plot(
-                kind="bar", stacked=True, color=colors, ax=ax
-            )
-        
-            for i, state in enumerate(summary_df.index):
-                y_sin = summary_df.loc[state, '% Envíos sin Rate']
-                y_con = summary_df.loc[state, '% Envíos con Rate']
-                total_sin = summary_df.loc[state, 'Envíos sin Rate']
-                total_con = summary_df.loc[state, 'Envíos con Rate']
-        
-                if total_sin > 0:
-                    ax.text(i, y_sin / 2, f"{y_sin:.1f}%", ha='center', va='center', fontsize=8, color='white', fontweight='bold')
-                if total_con > 0:
-                    ax.text(i, y_sin + y_con / 2, f"{y_con:.1f}%", ha='center', va='center', fontsize=8, color='white', fontweight='bold')
-        
-            ax.set_ylabel("Porcentaje de Envíos")
-            ax.set_xlabel("Estado de Origen")
-            ax.set_title("Porcentaje de Envíos con y sin Rate por Estado")
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-            ax.legend(["Sin Rate", "Con Rate"], loc="upper right")
-            ax.grid(axis="y", linestyle="--", alpha=0.7)
-            
-            st.pyplot(fig)
-            plt.close(fig)
+import streamlit as st
+import os
+import streamlit.components.v1 as components
 
-    # Crear una fila adicional con tres columnas (izquierda, central, derecha)
-    col1, col_center, col2 = st.columns([1, 2, 1])  # Establece la proporción de las columnas
-    
-    # Columna 1 (izquierda) - Puede estar vacía o tener contenido adicional
-    with col1:
+# Crear las dos primeras columnas (superior)
+col1, col2 = st.columns([1, 2])
+
+# Columna 1 (izquierda)
+with col1:
+    st.write("Contenido de la Columna 1")
+
+# Columna 2 (derecha)
+with col2:
+    st.write("Contenido de la Columna 2")
+
+# Crear una fila adicional con tres columnas (izquierda, central, derecha)
+col1, col_center, col2 = st.columns([1, 2, 1])  # Establece la proporción de las columnas
+
+# Columna 1 (izquierda) - Puede estar vacía o tener contenido adicional
+with col1:
     st.write("")  # Deja vacío o agrega algo si lo deseas
-    
-    # Columna central (en el medio de las dos anteriores)
-    with col_center:
+
+# Columna central (en el medio de las dos anteriores)
+with col_center:
     # Mostrar el ícono de Sweetviz
     st.image("images/sweetviz.png", width=50)
-    
+
     # Ruta del archivo HTML en el directorio principal
     html_file_path = "SWEETVIZ_REPORT.html"
     
@@ -166,14 +109,14 @@ def pagina_datos():
         # Cargar el contenido del archivo HTML
         with open(html_file_path, "r") as file:
             html_content = file.read()
-    
+
         # Insertar el archivo HTML en la app de Streamlit
         components.html(html_content, height=600)  # Ajusta la altura según sea necesario
     else:
         st.warning("El archivo SWEETVIZ_REPORT.html no se encontró.")
-    
-    # Columna 2 (derecha) - Puede estar vacía o tener contenido adicional
-    with col2:
+
+# Columna 2 (derecha) - Puede estar vacía o tener contenido adicional
+with col2:
     st.write("")  # Deja vacío o agrega algo si lo deseas
 
 
