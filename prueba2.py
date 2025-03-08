@@ -179,11 +179,16 @@ def pagina_datos():
 
 # --- Pestaña 3: Modelo de Predicción ---
 def pagina_modelo():
-    st.title("Modelo de Predicción")
+    st.title("Modelo de Clasificación + Random Forest")
     st.write("El modelo utilizado en esta aplicación es un Random Forest Regressor entrenado para estimar los costos de transporte.")
     st.write("Se ha calculado un **Mean Absolute Percentage Error (MAPE)** de **11.64%**, lo que indica un buen desempeño en la estimación de costos.")
     st.write("El modelo ha sido entrenado con datos reales de transporte y utiliza variables como el tipo de vehículo, la distancia y el peso para hacer las predicciones.")
-    
+
+     # URL directa de la imagen en tu repositorio
+    imagen_url = "https://github.com/usuario/tu-repositorio/raw/main/tree.pdf"
+    # Crear un enlace de descarga en Streamlit
+    st.markdown(f"[Haz clic aquí para descargar Random Forest]( {imagen_url} )")
+
     # Leer y mostrar la imagen clusters.png
     image = Image.open("clusters.png")
     st.image(image, caption="Mapa de Clusters", use_column_width=True)
