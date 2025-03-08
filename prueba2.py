@@ -104,30 +104,36 @@ st.write(summary)
 
 
 #########################################
-# 4. Análisis de Clustering y Zonas Geográficas
+# 4. Análisis de Clustering y Zonas Geográficas (usando loads.parquet)
 #########################################
+
+import streamlit.components.v1 as components
+from sklearn.cluster import DBSCAN
+from geopy.distance import great_circle
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 st.header("4. Análisis de Clustering y Zonas Geográficas")
 st.markdown("""
-En esta sección se busca agrupar las ciudades de origen y destino de las cargas mediante DBSCAN, con el fin de identificar zonas geográficas que puedan presentar comportamientos tarifarios similares.  
-Se evalúan diferentes combinaciones de parámetros y se generan mapas interactivos para visualizar los clusters resultantes.
+En esta sección se agrupan las ciudades de origen y destino de las cargas mediante el algoritmo DBSCAN, con el objetivo de identificar zonas geográficas que puedan presentar comportamientos tarifarios similares.  
+Se evalúan diferentes combinaciones de parámetros y se generan mapas interactivos para visualizar los clusters resultantes, para posteriormente asignar a cada carga una zona geográfica.
 """)
 
-# Cargar datos de clusters (se asume que el archivo 'loadsclusters.parquet' está en la misma carpeta)
+# --- Carga de la base de datos "loads.parquet" ---
 @st.cache_data
-def load_cluster_data():
-    return pd.read_parquet('loadsclusters.parquet')
+def load_loads():
+    return pd.read_parquet('loads.parquet')
 
-df_cluster = load_cluster_data()
-st.write("Dimensiones de los datos de clusters:", df_cluster.shape)
+df_loads = load_loads()
+st.write("Dimensiones de la base de datos loads.parquet:", df_loads.shape)
 
-# Generar DataFrame de ciudades (origen y destino)
+# --- Generación del DataFrame de ciudades ---
+# Se unen las coordenadas de origen y destino para generar un listado único de ciudades
 cities = pd.concat(
     [
-        df_cluster[['ID', 'LatOrigin', 'LngOrigin', 'StateOrigin']].rename(
+        df_loads[['ID', 'LatOrigin', 'LngOrigin', 'StateOrigin']].rename(
             columns={'StateOrigin': 'State', 'LatOrigin': 'Lat', 'LngOrigin': 'Lng'}
         ),
-        df_cluster[['ID', 'LatDestination', 'LngDestination', 'StateDestination']].rename(
+        df_loads[['ID', 'LatDestination', 'LngDestination', 'StateDestination']].rename(
             columns={'StateDestination': 'State', 'LatDestination': 'Lat', 'LngDestination': 'Lng'}
         )
     ],
@@ -137,15 +143,15 @@ cities = cities.drop_duplicates(subset=['Lat', 'Lng'])
 st.write("Número de ciudades únicas:", cities.shape[0])
 st.write(cities.head())
 
-# Función para generar mapas de clusters
+# --- Función para generar mapas de clusters ---
 def generar_mapa_clusters(df, lat_col='Lat', lon_col='Lng', cluster_col='cluster', zoom_start=5):
     mapa = folium.Map(location=[df[lat_col].mean(), df[lon_col].mean()], zoom_start=zoom_start)
     
-    # Obtener clusters únicos (excluyendo outliers: -1)
+    # Se obtienen los clusters únicos (excluyendo outliers, que tienen etiqueta -1)
     clusters_unicos = df[cluster_col].unique()
     clusters_unicos = clusters_unicos[clusters_unicos != -1]
     
-    # Crear colormap con suficientes colores
+    # Se crea un colormap con suficientes colores
     colors = plt.cm.get_cmap('gist_ncar', len(clusters_unicos))
     cluster_colors = {
         cluster: "#{:02x}{:02x}{:02x}".format(
@@ -156,13 +162,12 @@ def generar_mapa_clusters(df, lat_col='Lat', lon_col='Lng', cluster_col='cluster
         for i, cluster in enumerate(clusters_unicos)
     }
     
-    # Dibujar círculos para cada cluster
+    # Se dibujan los círculos de cada cluster basados en el centroide y la máxima distancia (radio)
     for cluster in clusters_unicos:
         df_cluster_temp = df[df[cluster_col] == cluster]
         centroide_lat = df_cluster_temp[lat_col].mean()
         centroide_lon = df_cluster_temp[lon_col].mean()
         
-        # Calcular radio (máxima distancia al centroide en millas)
         max_dist_mi = max(df_cluster_temp.apply(
             lambda row: great_circle((centroide_lat, centroide_lon), (row[lat_col], row[lon_col])).miles,
             axis=1
@@ -170,7 +175,7 @@ def generar_mapa_clusters(df, lat_col='Lat', lon_col='Lng', cluster_col='cluster
         
         folium.Circle(
             location=[centroide_lat, centroide_lon],
-            radius=max_dist_mi * 1609.34,  # Convertir millas a metros
+            radius=max_dist_mi * 1609.34,  # Conversión de millas a metros
             color=cluster_colors[cluster],
             fill=True,
             fill_color=cluster_colors[cluster],
@@ -178,7 +183,7 @@ def generar_mapa_clusters(df, lat_col='Lat', lon_col='Lng', cluster_col='cluster
             popup=f"Cluster {cluster} (Radio: {max_dist_mi:.2f} mi)"
         ).add_to(mapa)
     
-    # Dibujar puntos individuales
+    # Se dibujan los puntos individuales
     for _, row in df.iterrows():
         folium.CircleMarker(
             location=[row[lat_col], row[lon_col]],
@@ -191,9 +196,10 @@ def generar_mapa_clusters(df, lat_col='Lat', lon_col='Lng', cluster_col='cluster
     
     return mapa
 
-# Búsqueda de parámetros para DBSCAN
+# --- Búsqueda de parámetros para DBSCAN ---
+st.markdown("#### Evaluación de Modelos de Clustering")
 eps_values = np.arange(10/69, 100/69, 0.15)  # Aproximadamente de 10 a 100 millas (convertido a grados)
-min_samples_values = np.arange(5, 31, 5)  # Valores de 5 a 30
+min_samples_values = np.arange(5, 31, 5)        # Valores de 5 a 30
 
 resultados = []
 for eps in eps_values:
@@ -223,11 +229,10 @@ for eps in eps_values:
 df_resultados = pd.DataFrame(resultados).sort_values(by='silhouette', ascending=False)
 df_resultados_best = df_resultados.loc[df_resultados['noise_ratio'] < 0.5].head(10)
 
-st.subheader("Resultados de Clustering")
 st.write("Top 10 modelos (con noise_ratio < 0.5):")
 st.dataframe(df_resultados_best)
 
-# Seleccionar el mejor modelo según el silhouette score
+# --- Selección del Mejor Modelo ---
 best_model = df_resultados.loc[df_resultados['silhouette'].idxmax()]
 st.write("📌 Mejor Modelo (por Silhouette Score):")
 st.write(best_model)
@@ -241,22 +246,7 @@ st.markdown("**Mapa del Mejor Modelo (por Silhouette Score)**")
 mapa_best = generar_mapa_clusters(cities)
 components.html(mapa_best._repr_html_(), height=500)
 
-# Modelo con 27 clusters (si existe alguno)
-if 27 in df_resultados['num_clusters'].values:
-    best_model_27 = df_resultados[df_resultados['num_clusters'] == 27].iloc[0]
-    st.write("📌 Mejor Modelo con 27 clusters:")
-    st.write(best_model_27)
-    
-    dbscan = DBSCAN(eps=best_model_27['eps (mi)'] / 69, min_samples=int(best_model_27['min_samples']))
-    cities['cluster'] = dbscan.fit_predict(cities[['Lat', 'Lng']])
-    num_clusters_27 = len(set(cities['cluster'])) - (1 if -1 in cities['cluster'].values else 0)
-    st.write("Número de clusters (excluyendo outliers):", num_clusters_27)
-    
-    st.markdown("**Mapa del Modelo con 27 clusters**")
-    mapa_27 = generar_mapa_clusters(cities)
-    components.html(mapa_27._repr_html_(), height=500)
-
-# Modelo con menor noise_ratio
+# --- Modelo con menor Noise Ratio ---
 best_model_noise = df_resultados.loc[df_resultados['noise_ratio'].idxmin()]
 st.write("📌 Mejor Modelo (por menor Noise Ratio):")
 st.write(best_model_noise)
@@ -270,14 +260,13 @@ st.markdown("**Mapa del Modelo con menor Noise Ratio**")
 mapa_noise = generar_mapa_clusters(cities)
 components.html(mapa_noise._repr_html_(), height=500)
 
-st.markdown("#### Análisis de Outliers y Estados en Outliers")
-# Pivot table de conteo de observaciones por cluster
+# --- Análisis de Outliers ---
+st.markdown("#### Análisis de Outliers")
 pivot_clusters = cities.pivot_table(index='cluster', values='ID', aggfunc='count')
 st.write("Conteo de observaciones por cluster:")
 st.write(pivot_clusters)
 
-# Mapa de outliers (cluster -1)
-st.markdown("Mapa de Observaciones sin Cluster (Outliers)")
+st.markdown("Mapa de Observaciones sin Cluster (Outliers, cluster -1)")
 mapa_outliers = folium.Map(location=[cities['Lat'].mean(), cities['Lng'].mean()], zoom_start=5)
 for _, row in cities[cities['cluster'] == -1].iterrows():
     folium.CircleMarker(
@@ -298,10 +287,18 @@ st.markdown("#### Estados por Cluster")
 for i in range(0, 11):
     st.write(f"Estados del cluster {i}:", cities.loc[cities['cluster'] == i]['State'].unique())
 
+# --- Asignación de Zonas Geográficas ---
 st.markdown("#### Asignación de Zonas Geográficas")
 st.markdown("""
-A partir de los clusters obtenidos se asignan zonas geográficas.  
-Cada cluster se asocia a una zona en función de los estados que comprende.
+Se asignan zonas geográficas a partir de los estados de cada ciudad.  
+Cada cluster se asocia a una zona mediante la siguiente clasificación:
+- **Z0:** TX, NM, OK, AR, LA  
+- **Z1:** OH, IN, IL, MI, KY, WV  
+- **Z2:** NY, NJ, PA, DE, MD, VA, ME, CT, MA, NH, RI, VT  
+- **Z3:** FL, AL, GA, SC, NC, MS, TN  
+- **Z4:** AZ, CA, NV, WA, UT, OR  
+- **Z5:** KS, IA, MN, ND, SD, NE, WI, MO  
+- **Z6:** CO, MT, ID, WY
 """)
 
 def get_zone(state_code):
@@ -320,31 +317,31 @@ def get_zone(state_code):
     return "Unknown"
 
 cities['zone'] = cities['State'].apply(lambda x: get_zone(x))
-st.write("Ejemplo de asignación de zona para algunas ciudades:")
+st.write("Ejemplo de asignación de zona:")
 st.write(cities[['Lat', 'Lng', 'State', 'zone']].head())
 
-# Fusionar la información de zonas en el DataFrame original
+# --- Fusionar Zonas Geográficas en el Dataset Original ---
 cols_zone = ['Lat', 'Lng', 'zone']
-df_merged = df_cluster.merge(cities[cols_zone],
-                             left_on=['LatOrigin', 'LngOrigin'],
-                             right_on=['Lat', 'Lng'],
-                             how='left').rename(columns={'zone': 'ZoneOrigin'})
+df_merged = df_loads.merge(cities[cols_zone],
+                           left_on=['LatOrigin', 'LngOrigin'],
+                           right_on=['Lat', 'Lng'],
+                           how='left').rename(columns={'zone': 'ZoneOrigin'})
 df_merged = df_merged.merge(cities[cols_zone],
-                             left_on=['LatDestination', 'LngDestination'],
-                             right_on=['Lat', 'Lng'],
-                             how='left').rename(columns={'zone': 'ZoneDestination'})
+                           left_on=['LatDestination', 'LngDestination'],
+                           right_on=['Lat', 'Lng'],
+                           how='left').rename(columns={'zone': 'ZoneDestination'})
 df_merged.drop(columns=['Lat_x', 'Lng_x', 'Lat_y', 'Lng_y'], inplace=True)
 st.write("Dimensiones del DataFrame fusionado:", df_merged.shape)
 
-# Filtrar datos para análisis final: cargas con RatePerMile > 0
+# --- Filtrado y Preparación del Dataset Final ---
+# Se filtran las cargas con RatePerMile positivo y se eliminan registros con Hub idéntico en origen y destino
 test_final = df_merged[df_merged['RatePerMile'] > 0]
 st.write("Dimensiones de cargas con RatePerMile > 0:", test_final.shape)
 
-# Eliminar registros donde HubOrigin es igual a HubDestination
 test_final = test_final.drop(test_final[test_final['HubOrigin'] == test_final['HubDestination']].index)
 st.write("Dimensiones después de eliminar Hub iguales:", test_final.shape)
 
-# Función para remover outliers usando el método IQR
+# Función para remover outliers en RatePerMile mediante el método IQR
 def remove_outliers_iqr(df, col):
     Q1 = df[col].quantile(0.25)
     Q3 = df[col].quantile(0.75)
@@ -355,7 +352,7 @@ def remove_outliers_iqr(df, col):
 test_final = remove_outliers_iqr(test_final, 'RatePerMile')
 st.write("Dimensiones después de eliminar outliers en RatePerMile:", test_final.shape)
 
-# Crear combinaciones de zonas y estados
+# Se crean combinaciones de zonas, estados y hubs para análisis futuro
 test_final['ZoneCombination'] = test_final['ZoneOrigin'] + test_final['ZoneDestination']
 test_final['StateCombination'] = test_final['StateOrigin'] + test_final['StateDestination']
 test_final['HubCombination'] = test_final['HubOrigin'] + test_final['HubDestination']
@@ -364,8 +361,8 @@ st.write("Número de combinaciones de Hub:", test_final['HubCombination'].nuniqu
 st.markdown("""
 **Conclusiones del Análisis de Clustering y Zonas Geográficas:**
 
-- El análisis de clustering mediante DBSCAN permite identificar agrupaciones de ciudades que pueden tener comportamientos tarifarios similares.
-- Se evaluaron distintos modelos balanceando la separación de clusters (silhouette score) y la cantidad de outliers (noise ratio).
-- La asignación final de zonas geográficas se realiza combinando la información de clusters y estados, reduciendo la complejidad en la variable de trayecto.
-- Se identificaron observaciones atípicas (outliers) que podrían ser reasignadas a clusters específicos en análisis posteriores.
+- El análisis de clustering mediante DBSCAN permite identificar agrupaciones de ciudades que pueden tener comportamientos tarifarios similares.  
+- Se evaluaron distintos modelos balanceando la separación de clusters (silhouette score) y la cantidad de outliers (noise ratio).  
+- La asignación final de zonas geográficas se realiza combinando la información de clusters y estados, reduciendo la complejidad en la variable de trayecto.  
+- Se identificaron observaciones atípicas (outliers) que podrían ser reasignadas en análisis posteriores.
 """)
