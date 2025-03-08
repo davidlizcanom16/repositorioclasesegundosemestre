@@ -111,6 +111,7 @@ def pagina_dueno():
                 with col3:
                     st.subheader("Distancia Estimada")
                     st.write(f"**Distancia:** {st.session_state['distancia']} km")
+                    
                     st.subheader("Estimación de Pago")
                     st.write(f"💰 **Valor mínimo:** ${min_value:.2f}")
                     st.write(f"💰 **Valor máximo:** ${max_value:.2f}")
