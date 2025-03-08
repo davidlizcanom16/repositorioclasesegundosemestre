@@ -30,6 +30,7 @@ import subprocess
 import pickle  # Asegúrate de importar pickle aquí
 from streamlit_folium import folium_static
 import streamlit.components.v1 as components
+from PIL import Image
 
 st.set_page_config(page_title="Gestión de Cargas", layout="wide")
 
@@ -182,9 +183,7 @@ def pagina_modelo():
     st.write("El modelo utilizado en esta aplicación es un Random Forest Regressor entrenado para estimar los costos de transporte.")
     st.write("Se ha calculado un **Mean Absolute Percentage Error (MAPE)** de **11.64%**, lo que indica un buen desempeño en la estimación de costos.")
     st.write("El modelo ha sido entrenado con datos reales de transporte y utiliza variables como el tipo de vehículo, la distancia y el peso para hacer las predicciones.")
-
-    import streamlit as st
-    from PIL import Image
+    
     # Leer y mostrar la imagen clusters.png
     image = Image.open("clusters.png")
     st.image(image, caption="Mapa de Clusters", use_column_width=True)
