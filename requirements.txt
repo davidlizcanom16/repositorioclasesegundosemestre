@@ -10,4 +10,4 @@ geopy
 ydata-profiling
 folium
 streamlit-folium
-pickle5  # Para compatibilidad con pickle en algunas versiones
+pickle5 
